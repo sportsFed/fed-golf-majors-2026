@@ -63,7 +63,7 @@ export default function MajorPickPage({ params }: { params: Promise<{ majorId: s
         // Pre-fill existing picks for this major
         const existing = entry.majors?.[majorId as MajorId];
         if (existing?.picks?.length) {
-          const prefilled: PickSlot[] = existing.picks.map((p) => ({
+          const prefilled: { golfer: FieldGolfer | null }[] = existing.picks.map((p) => ({
             golfer: { id: p.golferId, displayName: p.golferName, tier: p.tier, majorId: majorId as MajorId } as FieldGolfer
           }));
           while (prefilled.length < 5) prefilled.push({ golfer: null });
