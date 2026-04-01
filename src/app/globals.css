@@ -1,0 +1,108 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --fairway-dark: #0a1f14;
+  --fairway-mid: #112d1c;
+  --fairway-light: #1a4229;
+  --green-400: #4dbd88;
+  --green-500: #28a06a;
+  --gold-400: #facc15;
+  --gold-500: #eab308;
+  --text-primary: #f0faf4;
+  --text-secondary: #86d8b0;
+  --text-muted: #4dbd88;
+  --border: rgba(77, 189, 136, 0.2);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0;
+  background: var(--fairway-dark);
+  color: var(--text-primary);
+  font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 0; opacity: 0.4;
+}
+
+h1, h2, h3 { font-family: 'Playfair Display', serif; }
+
+.card {
+  background: rgba(17, 45, 28, 0.8);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+}
+
+.tier-badge {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px; border-radius: 9999px;
+  font-size: 0.7rem; font-family: 'DM Mono', monospace;
+  font-weight: 500; letter-spacing: 0.05em;
+}
+.tier-even-999  { background: rgba(250,204,21,0.15); color: #facc15; border: 1px solid rgba(250,204,21,0.3); }
+.tier-1000-2499 { background: rgba(134,211,176,0.15); color: #86d8b0; border: 1px solid rgba(134,211,176,0.3); }
+.tier-2500-4999 { background: rgba(77,189,136,0.15); color: #4dbd88; border: 1px solid rgba(77,189,136,0.3); }
+.tier-5000plus  { background: rgba(40,160,106,0.15); color: #28a06a; border: 1px solid rgba(40,160,106,0.3); }
+.tier-field     { background: rgba(255,255,255,0.08); color: #9ca3af; border: 1px solid rgba(255,255,255,0.15); }
+
+.score-under { color: #f87171; }
+.score-even  { color: #f0faf4; }
+.score-over  { color: #6b7280; }
+
+.btn-primary {
+  background: linear-gradient(135deg, #28a06a, #1a8255);
+  color: white; border: none; border-radius: 8px;
+  padding: 10px 20px; font-family: 'DM Sans', sans-serif;
+  font-weight: 500; cursor: pointer; transition: all 0.15s;
+}
+.btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+.btn-secondary {
+  background: transparent; color: var(--green-400);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 20px; font-family: 'DM Sans', sans-serif;
+  font-weight: 500; cursor: pointer; transition: all 0.15s;
+}
+.btn-secondary:hover { border-color: var(--green-400); background: rgba(77,189,136,0.08); }
+
+.btn-gold {
+  background: linear-gradient(135deg, #eab308, #ca8a04);
+  color: #0a1f14; border: none; border-radius: 8px;
+  padding: 10px 20px; font-family: 'DM Sans', sans-serif;
+  font-weight: 600; cursor: pointer; transition: all 0.15s;
+}
+.btn-gold:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+.input {
+  background: rgba(10, 31, 20, 0.8);
+  border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text-primary); padding: 10px 14px;
+  font-family: 'DM Sans', sans-serif; font-size: 0.95rem;
+  width: 100%; transition: border-color 0.15s;
+}
+.input:focus { outline: none; border-color: var(--green-400); box-shadow: 0 0 0 3px rgba(77,189,136,0.15); }
+.input::placeholder { color: rgba(134,211,176,0.4); }
+
+select.input { appearance: none; cursor: pointer; }
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.leaderboard-row { animation: fadeSlideIn 0.3s ease forwards; }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--fairway-dark); }
+::-webkit-scrollbar-thumb { background: var(--fairway-light); border-radius: 3px; }

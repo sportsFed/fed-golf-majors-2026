@@ -1,0 +1,16 @@
+# env
+.env.local
+.env
+
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+
+# misc
+*.log
+.DS_Store
+*.pem
+serviceAccountKey.json
