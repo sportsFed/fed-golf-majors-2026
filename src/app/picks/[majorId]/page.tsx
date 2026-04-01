@@ -3,12 +3,11 @@ import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Nav from "@/components/shared/Nav";
 import { getSession } from "@/lib/auth";
-import { ODDS_BONUSES, oddsToTier } from "@/lib/scoring";
-import { formatScore } from "@/lib/scoring";
+
+import { formatScore, oddsToTier } from "@/lib/scoring";
+import { ODDS_BONUSES } from "@/types";
 import type { MajorId, FieldGolfer, Entry } from "@/types";
 
-// Need to re-export oddsToTier from scoring since it's defined there
-import { oddsToTier as getOddsTier } from "@/lib/scoring";
 
 const MAJOR_NAMES: Record<MajorId, string> = {
   masters: "The Masters",
@@ -64,7 +63,7 @@ export default function MajorPickPage({ params }: { params: Promise<{ majorId: s
         // Pre-fill existing picks for this major
         const existing = entry.majors?.[majorId as MajorId];
         if (existing?.picks?.length) {
-          const prefilled = existing.picks.map((p) => ({
+          const prefilled: PickSlot[] = existing.picks.map((p) => ({
             golfer: { id: p.golferId, displayName: p.golferName, tier: p.tier, majorId: majorId as MajorId } as FieldGolfer
           }));
           while (prefilled.length < 5) prefilled.push({ golfer: null });

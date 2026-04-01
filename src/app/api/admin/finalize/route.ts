@@ -42,7 +42,8 @@ export async function POST(req: NextRequest) {
       ms.majorId = majorId as MajorId;
 
       const scoreRef = adminDb.collection("finalizedScores").doc(`${entry.id}_${majorId}`);
-      batch.set(scoreRef, { entryId: entry.id, majorId, ...ms, finalizedAt: new Date().toISOString() });
+      const { majorId: _mid, ...msRest } = ms;
+      batch.set(scoreRef, { entryId: entry.id, majorId, ...msRest, finalizedAt: new Date().toISOString() });
       count++;
     }
 
