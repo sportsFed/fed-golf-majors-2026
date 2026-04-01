@@ -139,9 +139,10 @@ export async function saveFinalizedMajorScore(
   majorId: MajorId,
   score: MajorScore
 ) {
+  const { majorId: _mid, ...scoreData } = score;
   await setDoc(
     doc(db, "finalizedScores", `${entryId}_${majorId}`),
-    { entryId, majorId, ...score, finalizedAt: serverTimestamp() }
+    { entryId, majorId, ...scoreData, finalizedAt: serverTimestamp() }
   );
 }
 
