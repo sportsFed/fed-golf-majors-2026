@@ -36,13 +36,15 @@ export default function AdminPage() {
   const [fieldSaving, setFieldSaving] = useState(false);
   const [fieldMsg, setFieldMsg] = useState("");
 
-  // Deadline
+  // Deadline / settings
   const [deadlineDate, setDeadlineDate] = useState("");
   const [deadlineTime, setDeadlineTime] = useState("08:15");
   const [majorStatus, setMajorStatus] = useState<Major["status"]>("upcoming");
   const [sheetUrl, setSheetUrl] = useState("");
   const [deadlineSaving, setDeadlineSaving] = useState(false);
   const [deadlineMsg, setDeadlineMsg] = useState("");
+  const [snapshotMsg, setSnapshotMsg] = useState("");
+  const [snapshotting, setSnapshotting] = useState(false);
 
   // Name match
   const [liveNames, setLiveNames] = useState<string[]>([]);
@@ -51,6 +53,11 @@ export default function AdminPage() {
   const [mapFrom, setMapFrom] = useState("");
   const [mapTo, setMapTo] = useState("");
   const [mapDisplay, setMapDisplay] = useState("");
+  // Bulk import
+  const [bulkText, setBulkText] = useState("");
+  const [bulkParsed, setBulkParsed] = useState<{ fieldName: string; espnName: string; displayAs: string }[]>([]);
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkMsg, setBulkMsg] = useState("");
 
   // Overrides
   const [overrides, setOverrides] = useState<AdminOverride[]>([]);
@@ -63,10 +70,7 @@ export default function AdminPage() {
   const [resetEntryId, setResetEntryId] = useState<string | null>(null);
   const [newPin, setNewPin] = useState("");
   const [resetMsg, setResetMsg] = useState<Record<string, string>>({});
-
-  // Snapshot
-  const [snapshotMsg, setSnapshotMsg] = useState("");
-  const [snapshotting, setSnapshotting] = useState(false);
+  const [expandedEntryPicks, setExpandedEntryPicks] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session) { router.push("/login"); return; }
@@ -80,6 +84,7 @@ export default function AdminPage() {
       const res = await fetch(`/api/admin/field?majorId=${activeMajor}`);
       const d = await res.json();
       if (d.golfers?.length) setParsedField(d.golfers);
+      else setParsedField([]);
     }
     if (tab === "deadline") {
       const res = await fetch(`/api/admin/major-settings?majorId=${activeMajor}`);
@@ -154,6 +159,47 @@ export default function AdminPage() {
     setDeadlineSaving(false);
   }
 
+  async function takeSnapshot() {
+    setSnapshotting(true); setSnapshotMsg("");
+    const res = await fetch("/api/admin/snapshot", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ majorId: activeMajor }) });
+    const d = await res.json();
+    setSnapshotMsg(res.ok ? `✓ Snapshot saved — ${d.count} entries at ${new Date(d.timestamp).toLocaleTimeString()}` : `Error: ${d.error}`);
+    setSnapshotting(false);
+  }
+
+  // Bulk name match parser
+  // Format: one pair per line, tab or comma separated:
+  // YourFieldName [tab] ESPNName
+  // If only one name per line, it's used as both (identity mapping for auto-abbrev only)
+  function parseBulkText() {
+    const lines = bulkText.trim().split("\n").filter(l => l.trim());
+    const parsed = lines.map(line => {
+      const parts = line.split(/\t|,/).map(p => p.trim());
+      const fieldName = parts[0] ?? "";
+      const espnName = parts[1] ?? fieldName; // default: same name
+      const displayAs = parts[2] ?? autoAbbrev(fieldName);
+      return { fieldName, espnName, displayAs };
+    }).filter(p => p.fieldName);
+    setBulkParsed(parsed);
+  }
+
+  async function saveBulkMappings() {
+    setBulkSaving(true); setBulkMsg("");
+    let saved = 0;
+    for (const m of bulkParsed) {
+      await fetch("/api/admin/name-mappings", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ majorId: activeMajor, adminName: m.fieldName, espnName: m.espnName, displayAs: m.displayAs })
+      });
+      saved++;
+    }
+    setBulkMsg(`✓ ${saved} mappings saved`);
+    setBulkParsed([]);
+    setBulkText("");
+    setBulkSaving(false);
+    loadTabData();
+  }
+
   async function saveMapping() {
     if (!mapFrom || !mapTo) return;
     const displayAs = mapDisplay || autoAbbrev(mapFrom);
@@ -188,19 +234,8 @@ export default function AdminPage() {
   async function resetPin(entryId: string) {
     if (!newPin || !/^\d{4}$/.test(newPin)) { setResetMsg({ ...resetMsg, [entryId]: "PIN must be 4 digits." }); return; }
     const res = await fetch("/api/admin/entries", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entryId, newPin }) });
-    if (res.ok) {
-      setResetMsg({ ...resetMsg, [entryId]: "✓ PIN updated!" });
-      setResetEntryId(null); setNewPin("");
-      loadTabData();
-    } else { setResetMsg({ ...resetMsg, [entryId]: "Error updating PIN." }); }
-  }
-
-  async function takeSnapshot() {
-    setSnapshotting(true); setSnapshotMsg("");
-    const res = await fetch("/api/admin/snapshot", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ majorId: activeMajor }) });
-    const d = await res.json();
-    setSnapshotMsg(res.ok ? `✓ Snapshot saved — ${d.count} entries at ${new Date(d.timestamp).toLocaleTimeString()}` : `Error: ${d.error}`);
-    setSnapshotting(false);
+    if (res.ok) { setResetMsg({ ...resetMsg, [entryId]: "✓ PIN updated!" }); setResetEntryId(null); setNewPin(""); loadTabData(); }
+    else setResetMsg({ ...resetMsg, [entryId]: "Error updating PIN." });
   }
 
   const TABS: { id: AdminTab; label: string }[] = [
@@ -212,7 +247,7 @@ export default function AdminPage() {
     { id: "entries", label: "All Entries" }
   ];
 
-  const S = { color: "var(--text-muted)", fontSize: "0.72rem", display: "block", marginBottom: 6, fontWeight: 600 as const };
+  const LBL: React.CSSProperties = { color: "var(--text-muted)", fontSize: "0.72rem", display: "block", marginBottom: 6, fontWeight: 600 };
 
   if (!authed) return (
     <div style={{ minHeight: "100vh", background: "var(--fairway-dark)" }}>
@@ -233,7 +268,6 @@ export default function AdminPage() {
     <div style={{ minHeight: "100vh", background: "var(--fairway-dark)" }}>
       <Nav />
       <div style={{ maxWidth: 1060, margin: "0 auto", padding: "32px 20px" }}>
-        {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
           <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.8rem", color: "#f0faf4", margin: 0 }}>⚙ Admin Panel</h1>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -249,7 +283,6 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Tabs */}
         <div style={{ display: "flex", gap: 0, marginBottom: 28, borderBottom: "1px solid var(--border)", overflowX: "auto" }}>
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} style={{
@@ -267,11 +300,13 @@ export default function AdminPage() {
           <div>
             <h2 style={{ color: "#f0faf4", fontSize: "1.1rem", marginBottom: 8 }}>Field Import — {MAJORS.find(m => m.id === activeMajor)?.name}</h2>
             <p style={{ color: "var(--text-muted)", fontSize: "0.82rem", marginBottom: 16 }}>
-              One golfer per line: <code style={{ background: "rgba(255,255,255,0.1)", padding: "1px 6px", borderRadius: 3 }}>Name [tab] odds</code> — e.g. <code style={{ background: "rgba(255,255,255,0.1)", padding: "1px 6px", borderRadius: 3 }}>Scottie Scheffler	350</code><br/>
-              Golfers without odds go to the Field tier automatically.
+              One golfer per line: <code style={{ background: "rgba(255,255,255,0.1)", padding: "1px 6px", borderRadius: 3 }}>Name [tab] odds</code><br/>
+              Golfers without odds go to the Field tier. Saves replace the entire field for this major.
             </p>
-            <textarea className="input" rows={12} placeholder={"Scottie Scheffler\t350\nRory McIlroy\t800\nJon Rahm\t1400\nSam Burns"}
-              value={fieldText} onChange={e => setFieldText(e.target.value)} style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.82rem", marginBottom: 12 }} />
+            <textarea className="input" rows={12}
+              placeholder={"Scottie Scheffler\t350\nRory McIlroy\t800\nJon Rahm\t1400\nSam Burns"}
+              value={fieldText} onChange={e => setFieldText(e.target.value)}
+              style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.82rem", marginBottom: 12 }} />
             <div style={{ display: "flex", gap: 10, marginBottom: 20, alignItems: "center", flexWrap: "wrap" }}>
               <button className="btn-secondary" onClick={parseFieldText}>Parse Field</button>
               {parsedField.length > 0 && <button className="btn-primary" onClick={saveField} disabled={fieldSaving}>{fieldSaving ? "Saving…" : `Save ${parsedField.length} golfers`}</button>}
@@ -301,14 +336,14 @@ export default function AdminPage() {
           <div style={{ maxWidth: 580 }}>
             <h2 style={{ color: "#f0faf4", fontSize: "1.1rem", marginBottom: 20 }}>Settings — {MAJORS.find(m => m.id === activeMajor)?.name}</h2>
             <div style={{ marginBottom: 20 }}>
-              <label style={S}>Pick Deadline (Central Time)</label>
+              <label style={LBL}>Pick Deadline (Central Time)</label>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 120px", gap: 10 }}>
                 <input className="input" type="date" value={deadlineDate} onChange={e => setDeadlineDate(e.target.value)} />
                 <input className="input" type="time" value={deadlineTime} onChange={e => setDeadlineTime(e.target.value)} />
               </div>
             </div>
             <div style={{ marginBottom: 20 }}>
-              <label style={S}>Major Status</label>
+              <label style={LBL}>Major Status</label>
               <select className="input" value={majorStatus} onChange={e => setMajorStatus(e.target.value as Major["status"])}>
                 <option value="upcoming">Upcoming (picks not open)</option>
                 <option value="open">Open (picks accepted)</option>
@@ -318,21 +353,17 @@ export default function AdminPage() {
               </select>
             </div>
             <div style={{ marginBottom: 20 }}>
-              <label style={S}>Google Sheet CSV URL</label>
+              <label style={LBL}>Google Sheet CSV URL</label>
               <input className="input" placeholder="https://docs.google.com/spreadsheets/d/e/…/pub?output=csv" value={sheetUrl} onChange={e => setSheetUrl(e.target.value)} />
-              <p style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginTop: 6 }}>File → Share → Publish to web → CSV → copy URL</p>
+              <p style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginTop: 6 }}>File → Share → Publish to web → your scores sheet → CSV → copy URL</p>
             </div>
             <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
               <button className="btn-primary" onClick={saveDeadline} disabled={deadlineSaving}>{deadlineSaving ? "Saving…" : "Save Settings"}</button>
               {deadlineMsg && <span style={{ color: deadlineMsg.includes("✓") ? "var(--green-400)" : "#f87171", fontSize: "0.85rem" }}>{deadlineMsg}</span>}
             </div>
-
-            {/* Manual snapshot */}
             <div style={{ marginTop: 32, borderTop: "1px solid var(--border)", paddingTop: 24 }}>
-              <label style={S}>Manual Score Snapshot</label>
-              <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginBottom: 12 }}>
-                Force an immediate score snapshot for this major. Happens automatically every 30 min during active tournaments.
-              </p>
+              <label style={LBL}>Manual Score Snapshot</label>
+              <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginBottom: 12 }}>Force an immediate snapshot for history tracking. Auto-runs every 30 min during active tournaments.</p>
               <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                 <button className="btn-secondary" onClick={takeSnapshot} disabled={snapshotting}>{snapshotting ? "Taking snapshot…" : "📸 Take Snapshot Now"}</button>
                 {snapshotMsg && <span style={{ color: snapshotMsg.includes("✓") ? "var(--green-400)" : "#f87171", fontSize: "0.82rem" }}>{snapshotMsg}</span>}
@@ -345,33 +376,78 @@ export default function AdminPage() {
         {tab === "namematch" && (
           <div>
             <h2 style={{ color: "#f0faf4", fontSize: "1.1rem", marginBottom: 8 }}>Name Matching — {MAJORS.find(m => m.id === activeMajor)?.name}</h2>
-            <p style={{ color: "var(--text-muted)", fontSize: "0.82rem", marginBottom: 20 }}>
-              Map your field names to ESPN's exact spelling. Also set the <strong style={{ color: "#f0faf4" }}>Display As</strong> abbreviation used in tight spaces on the leaderboard (e.g. "S. Scheffler"). Auto-suggested from the first name initial.
-            </p>
+
+            {/* BULK IMPORT */}
+            <div style={{ background: "rgba(77,189,136,0.05)", border: "1px solid rgba(77,189,136,0.2)", borderRadius: 10, padding: "18px 20px", marginBottom: 24 }}>
+              <div style={{ color: "var(--green-400)", fontSize: "0.78rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                Bulk Import
+              </div>
+              <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginBottom: 12 }}>
+                Paste pairs of names, one per line — tab or comma separated:<br/>
+                <code style={{ background: "rgba(255,255,255,0.08)", padding: "1px 6px", borderRadius: 3, fontSize: "0.78rem" }}>Your Field Name [tab] ESPN Name</code><br/>
+                If only one name per line, it maps to itself (useful for setting display abbreviations in bulk).
+                A third column sets the display abbreviation — auto-generated as "F. Lastname" if omitted.
+              </p>
+              <textarea className="input" rows={8}
+                placeholder={"Rory McIlroy\tRory McIlroy\nLudvig Åberg\tLudvig Aberg\nNicolai Højgaard\tNicolai Hojgaard\nXander Schauffele\tXander Schauffele"}
+                value={bulkText} onChange={e => setBulkText(e.target.value)}
+                style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.8rem", marginBottom: 10 }} />
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                <button className="btn-secondary" onClick={parseBulkText}>Parse</button>
+                {bulkParsed.length > 0 && (
+                  <button className="btn-primary" onClick={saveBulkMappings} disabled={bulkSaving}>
+                    {bulkSaving ? "Saving…" : `Save ${bulkParsed.length} mappings`}
+                  </button>
+                )}
+                {bulkMsg && <span style={{ color: bulkMsg.includes("✓") ? "var(--green-400)" : "#f87171", fontSize: "0.85rem" }}>{bulkMsg}</span>}
+              </div>
+
+              {bulkParsed.length > 0 && (
+                <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 4 }}>
+                  {bulkParsed.map((m, i) => (
+                    <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr 120px", gap: 12, alignItems: "center", background: "rgba(10,31,20,0.6)", borderRadius: 6, padding: "7px 12px", fontSize: "0.82rem" }}>
+                      <span style={{ color: "#f0faf4" }}>{m.fieldName}</span>
+                      <span style={{ color: "var(--text-muted)" }}>→</span>
+                      <span style={{ color: "var(--green-400)" }}>{m.espnName}</span>
+                      <input value={m.displayAs} onChange={e => { const next = [...bulkParsed]; next[i] = { ...m, displayAs: e.target.value }; setBulkParsed(next); }}
+                        style={{ background: "rgba(0,0,0,0.3)", border: "1px solid var(--border)", borderRadius: 4, color: "#facc15", fontSize: "0.75rem", padding: "2px 6px", width: "100%", fontFamily: "'DM Mono', monospace" }} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* SINGLE MAPPING */}
+            <div style={{ color: "var(--text-muted)", fontSize: "0.78rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Add Single Mapping</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 140px auto", gap: 10, marginBottom: 20, alignItems: "end" }}>
               <div>
-                <label style={S}>Your Field Name</label>
+                <label style={LBL}>Your Field Name</label>
                 <select className="input" value={mapFrom} onChange={e => { setMapFrom(e.target.value); setMapDisplay(autoAbbrev(e.target.value)); }}>
                   <option value="">Select…</option>
                   {fieldNames.map(n => <option key={n} value={n}>{n}</option>)}
                 </select>
               </div>
               <div>
-                <label style={S}>ESPN Name</label>
+                <label style={LBL}>ESPN Name (from live sheet)</label>
                 <select className="input" value={mapTo} onChange={e => setMapTo(e.target.value)}>
                   <option value="">Select…</option>
                   {liveNames.map(n => <option key={n} value={n}>{n}</option>)}
                 </select>
               </div>
               <div>
-                <label style={S}>Display As</label>
+                <label style={LBL}>Display As</label>
                 <input className="input" placeholder="S. Scheffler" value={mapDisplay} onChange={e => setMapDisplay(e.target.value)} />
               </div>
               <button className="btn-primary" onClick={saveMapping} disabled={!mapFrom || !mapTo} style={{ padding: "10px 18px" }}>Add</button>
             </div>
+
+            {/* SAVED MAPPINGS */}
             {mappings.length === 0
-              ? <p style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>No mappings yet for this major.</p>
+              ? <p style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>No mappings saved yet for this major.</p>
               : <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div style={{ color: "var(--text-muted)", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
+                    Saved Mappings ({mappings.length})
+                  </div>
                   {mappings.map((m, i) => (
                     <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr 120px auto", gap: 12, alignItems: "center", background: "rgba(17,45,28,0.5)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px" }}>
                       <span style={{ color: "#f0faf4", fontSize: "0.85rem" }}>{m.adminName}</span>
@@ -383,9 +459,10 @@ export default function AdminPage() {
                   ))}
                 </div>
             }
+
             {liveNames.length === 0 && (
               <div style={{ marginTop: 20, background: "rgba(250,204,21,0.06)", border: "1px solid rgba(250,204,21,0.2)", borderRadius: 8, padding: "12px 16px", color: "#facc15", fontSize: "0.82rem" }}>
-                ⚠️ No live sheet data yet — name list populates once your Google Sheet has tournament data.
+                ⚠️ No live sheet data yet — the ESPN name dropdown populates once your Google Sheet has tournament data.
               </div>
             )}
           </div>
@@ -396,13 +473,13 @@ export default function AdminPage() {
           <div>
             <h2 style={{ color: "#f0faf4", fontSize: "1.1rem", marginBottom: 8 }}>Score Overrides — {MAJORS.find(m => m.id === activeMajor)?.name}</h2>
             <p style={{ color: "var(--text-muted)", fontSize: "0.82rem", marginBottom: 20 }}>Force CUT, WD, or a custom score. Overrides take priority over the live sheet.</p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 160px 140px auto", gap: 10, marginBottom: 20, alignItems: "end" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 160px 140px auto", gap: 10, marginBottom: 20, alignItems: "end", flexWrap: "wrap" as any }}>
               <div>
-                <label style={S}>Golfer Name (ESPN exact name)</label>
+                <label style={LBL}>Golfer Name (ESPN exact name)</label>
                 <input className="input" placeholder="Exact ESPN name" value={ovGolfer} onChange={e => setOvGolfer(e.target.value)} />
               </div>
               <div>
-                <label style={S}>Status</label>
+                <label style={LBL}>Status</label>
                 <select className="input" value={ovStatus} onChange={e => setOvStatus(e.target.value as any)}>
                   <option value="CUT">CUT (+penalty)</option>
                   <option value="WD">WD (no penalty)</option>
@@ -411,11 +488,11 @@ export default function AdminPage() {
               </div>
               {ovStatus === "CUSTOM" && (
                 <div>
-                  <label style={S}>Score (vs par)</label>
+                  <label style={LBL}>Score (vs par)</label>
                   <input className="input" type="number" placeholder="-5" value={ovScore} onChange={e => setOvScore(e.target.value)} />
                 </div>
               )}
-              <button className="btn-primary" onClick={saveOverride} disabled={!ovGolfer} style={{ padding: "10px 18px" }}>Add Override</button>
+              <button className="btn-primary" onClick={saveOverride} disabled={!ovGolfer} style={{ padding: "10px 18px" }}>Add</button>
             </div>
             {overrides.length === 0
               ? <p style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>No overrides set.</p>
@@ -440,13 +517,13 @@ export default function AdminPage() {
           <div style={{ maxWidth: 560 }}>
             <h2 style={{ color: "#f0faf4", fontSize: "1.1rem", marginBottom: 8 }}>Finalize Major — {MAJORS.find(m => m.id === activeMajor)?.name}</h2>
             <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", marginBottom: 16 }}>
-              Click after the tournament ends. Locks all scores permanently. Your Google Sheet can then safely update to next week's data.
+              Click after the tournament ends. Locks all scores permanently so your sheet can safely update to next week's data.
             </p>
             <ul style={{ color: "var(--text-muted)", fontSize: "0.85rem", marginBottom: 24, paddingLeft: 20, lineHeight: 1.9 }}>
               <li>Scores frozen — sheet changes won't affect them</li>
               <li>Major marked complete on leaderboard</li>
               <li>Cumulative standings update</li>
-              <li>This action cannot be easily undone — verify name mappings and overrides first</li>
+              <li>Cannot be easily undone — verify name mappings and overrides first</li>
             </ul>
             <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 8, padding: "14px 18px", marginBottom: 24 }}>
               <p style={{ color: "#f87171", fontSize: "0.85rem", margin: 0 }}>⚠️ Double-check all name mappings and overrides before finalizing.</p>
@@ -462,47 +539,77 @@ export default function AdminPage() {
           <div>
             <h2 style={{ color: "#f0faf4", fontSize: "1.1rem", marginBottom: 16 }}>All Entries ({entries.length})</h2>
             {entries.length === 0
-              ? <p style={{ color: "var(--text-muted)" }}>No entries found. Check Firebase console to confirm data exists.</p>
+              ? <p style={{ color: "var(--text-muted)" }}>No entries found. If entrants have registered, check Firebase console to confirm the entries collection exists.</p>
               : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {entries.map((e) => (
-                    <div key={e.id} style={{ background: "rgba(17,45,28,0.5)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 18px" }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 80px 120px auto", gap: 12, alignItems: "center" }}>
-                        <span style={{ color: "#f0faf4", fontWeight: 500, fontSize: "0.9rem" }}>{e.entrantName}</span>
-                        <span style={{ color: "var(--text-muted)", fontSize: "0.82rem" }}>{e.email}</span>
-                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.85rem", color: "#facc15", background: "rgba(250,204,21,0.08)", padding: "2px 8px", borderRadius: 6, textAlign: "center" }}>
-                          {e.pin ?? "—"}
-                        </span>
-                        <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>
-                          {Object.keys(e.majors ?? {}).length}/4 majors · {e.createdAt ? new Date(e.createdAt).toLocaleDateString() : ""}
-                        </span>
-                        <button
-                          onClick={() => { setResetEntryId(resetEntryId === e.id ? null : e.id); setNewPin(""); }}
-                          style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-muted)", cursor: "pointer", fontSize: "0.78rem", padding: "4px 10px", fontFamily: "'DM Sans', sans-serif" }}>
-                          Reset PIN
-                        </button>
-                      </div>
-
-                      {/* Inline PIN reset */}
-                      {resetEntryId === e.id && (
-                        <div style={{ marginTop: 12, display: "flex", gap: 10, alignItems: "center", borderTop: "1px solid var(--border)", paddingTop: 12 }}>
-                          <label style={{ color: "var(--text-muted)", fontSize: "0.78rem" }}>New PIN:</label>
-                          <input
-                            className="input" type="text" inputMode="numeric" maxLength={4}
-                            placeholder="4 digits" value={newPin}
-                            onChange={e => setNewPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                            style={{ width: 100, textAlign: "center", letterSpacing: "0.2em", fontFamily: "'DM Mono', monospace" }}
-                          />
-                          <button className="btn-primary" style={{ padding: "8px 16px", fontSize: "0.85rem" }} onClick={() => resetPin(e.id)} disabled={newPin.length !== 4}>
-                            Confirm Reset
+                  {entries.map(e => {
+                    const majorsPicked = Object.keys(e.majors ?? {});
+                    const isPicksExpanded = expandedEntryPicks === e.id;
+                    return (
+                      <div key={e.id} style={{ background: "rgba(17,45,28,0.5)", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
+                        {/* Entry row */}
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 70px 110px auto auto", gap: 12, alignItems: "center", padding: "14px 18px" }}>
+                          <span style={{ color: "#f0faf4", fontWeight: 500, fontSize: "0.9rem" }}>{e.entrantName}</span>
+                          <span style={{ color: "var(--text-muted)", fontSize: "0.82rem" }}>{e.email}</span>
+                          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.85rem", color: "#facc15", background: "rgba(250,204,21,0.08)", padding: "2px 8px", borderRadius: 6, textAlign: "center" }}>
+                            {e.pin ?? "—"}
+                          </span>
+                          <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>
+                            {majorsPicked.length}/4 majors
+                          </span>
+                          {/* View picks toggle */}
+                          <button
+                            onClick={() => setExpandedEntryPicks(isPicksExpanded ? null : e.id)}
+                            style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-muted)", cursor: "pointer", fontSize: "0.78rem", padding: "4px 10px", fontFamily: "'DM Sans', sans-serif" }}>
+                            {isPicksExpanded ? "Hide Picks" : "View Picks"}
                           </button>
-                          <button className="btn-secondary" style={{ padding: "8px 12px", fontSize: "0.85rem" }} onClick={() => { setResetEntryId(null); setNewPin(""); }}>
-                            Cancel
+                          <button
+                            onClick={() => { setResetEntryId(resetEntryId === e.id ? null : e.id); setNewPin(""); }}
+                            style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-muted)", cursor: "pointer", fontSize: "0.78rem", padding: "4px 10px", fontFamily: "'DM Sans', sans-serif" }}>
+                            Reset PIN
                           </button>
-                          {resetMsg[e.id] && <span style={{ color: resetMsg[e.id].includes("✓") ? "var(--green-400)" : "#f87171", fontSize: "0.82rem" }}>{resetMsg[e.id]}</span>}
                         </div>
-                      )}
-                    </div>
-                  ))}
+
+                        {/* Picks breakdown */}
+                        {isPicksExpanded && (
+                          <div style={{ borderTop: "1px solid var(--border)", padding: "14px 18px", background: "rgba(10,31,20,0.5)" }}>
+                            {majorsPicked.length === 0
+                              ? <p style={{ color: "var(--text-muted)", fontSize: "0.82rem", margin: 0 }}>No picks submitted yet.</p>
+                              : MAJORS.filter(m => majorsPicked.includes(m.id)).map(m => {
+                                  const mp = e.majors[m.id];
+                                  return (
+                                    <div key={m.id} style={{ marginBottom: 12 }}>
+                                      <div style={{ color: "var(--text-muted)", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, fontWeight: 600 }}>{m.name}</div>
+                                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                        {(mp.picks ?? []).map((p: any, i: number) => (
+                                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, background: i === 0 ? "rgba(250,204,21,0.08)" : "rgba(17,45,28,0.8)", border: `1px solid ${i === 0 ? "rgba(250,204,21,0.3)" : "var(--border)"}`, borderRadius: 6, padding: "4px 10px" }}>
+                                            {i === 0 && <span style={{ color: "#facc15", fontSize: "0.65rem" }}>⭐</span>}
+                                            <span style={{ color: "#f0faf4", fontSize: "0.8rem" }}>{p.golferName}</span>
+                                            <span className={`tier-badge tier-${p.tier}`} style={{ fontSize: "0.62rem" }}>{p.tier}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                            }
+                          </div>
+                        )}
+
+                        {/* PIN reset */}
+                        {resetEntryId === e.id && (
+                          <div style={{ borderTop: "1px solid var(--border)", padding: "12px 18px", background: "rgba(10,31,20,0.4)", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                            <label style={{ color: "var(--text-muted)", fontSize: "0.78rem" }}>New PIN:</label>
+                            <input className="input" type="text" inputMode="numeric" maxLength={4} placeholder="4 digits" value={newPin}
+                              onChange={e => setNewPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                              style={{ width: 90, textAlign: "center", letterSpacing: "0.2em", fontFamily: "'DM Mono', monospace" }} />
+                            <button className="btn-primary" style={{ padding: "8px 16px", fontSize: "0.85rem" }} onClick={() => resetPin(e.id)} disabled={newPin.length !== 4}>Confirm</button>
+                            <button className="btn-secondary" style={{ padding: "8px 12px", fontSize: "0.85rem" }} onClick={() => { setResetEntryId(null); setNewPin(""); }}>Cancel</button>
+                            {resetMsg[e.id] && <span style={{ color: resetMsg[e.id].includes("✓") ? "var(--green-400)" : "#f87171", fontSize: "0.82rem" }}>{resetMsg[e.id]}</span>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
             }
           </div>

@@ -5,13 +5,12 @@ import {
 } from "@/types";
 
 // ─── NAME NORMALIZATION ────────────────────────────────────────────────────
-// Strips accents and encoding artifacts so "HÃ¸jgaard" matches "Højgaard"
 
 export function normalizeName(name: string): string {
   return name
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")     // strip accent marks
-    .replace(/[^\x00-\x7F]/g, "")        // strip any remaining non-ASCII
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x00-\x7F]/g, "")
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
@@ -20,8 +19,6 @@ export function normalizeName(name: string): string {
 export function namesMatch(a: string, b: string): boolean {
   return normalizeName(a) === normalizeName(b);
 }
-
-// ─── ODDS → TIER ──────────────────────────────────────────────────────────
 
 export function oddsToTier(odds: number | undefined): import("@/types").OddsTier {
   if (odds === undefined || odds === null) return "field";
@@ -32,68 +29,88 @@ export function oddsToTier(odds: number | undefined): import("@/types").OddsTier
 }
 
 // ─── CSV PARSING ──────────────────────────────────────────────────────────
-// Parses the raw CSV from your Google Sheet (ESPN importHTML format)
+// Actual ESPN importHTML column layout:
+// Col 0: POS
+// Col 1: Movement indicator (number or dash) — SKIP
+// Col 2: PLAYER NAME
+// Col 3: SCORE (relative to par, "E", "CUT", "WD")
+// Col 4: TODAY (today's round score or "-")
+// Col 5: THRU (holes through, tee time, or "F")
+// Col 6: R1  Col 7: R2  Col 8: R3  Col 9: R4
+// Col 10: TOT (total strokes)
+// Last col: ScoreFmt (clean integer)
+
+function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') { inQuotes = !inQuotes; continue; }
+    if (ch === "," && !inQuotes) { result.push(current.trim()); current = ""; continue; }
+    current += ch;
+  }
+  result.push(current.trim());
+  return result;
+}
 
 export function parseEspnCsv(csvText: string): GolferScore[] {
   const lines = csvText.split("\n").map(l => l.trim()).filter(Boolean);
 
-  // Skip metadata rows (URL, query type, index, refresh) and find header row
+  // Find the header row
   let dataStart = 0;
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i].toLowerCase().includes("pos") && lines[i].toLowerCase().includes("player")) {
+    const lower = lines[i].toLowerCase();
+    if (lower.includes("pos") && lower.includes("player")) {
       dataStart = i + 1;
       break;
     }
   }
 
-  const scores: GolferScore[] = [];
-  let highestTotalStrokes = 0;
-
-  // First pass: find highest total strokes (used for CUT/WD penalty)
+  // First pass: find highest total strokes for CUT/WD penalty
+  let highestTotalStrokes = 288;
   for (let i = dataStart; i < lines.length; i++) {
-    const cols = lines[i].split(",").map(c => c.replace(/^"|"$/g, "").trim());
-    const tot = parseInt(cols[7]);
-    if (!isNaN(tot) && tot > highestTotalStrokes) {
-      highestTotalStrokes = tot;
-    }
+    const cols = parseCsvLine(lines[i]);
+    const tot = parseInt(cols[10]);
+    if (!isNaN(tot) && tot > highestTotalStrokes) highestTotalStrokes = tot;
   }
 
-  // Second pass: build GolferScore objects
-  for (let i = dataStart; i < lines.length; i++) {
-    const cols = lines[i].split(",").map(c => c.replace(/^"|"$/g, "").trim());
-    if (cols.length < 6 || !cols[1]) continue;
+  const scores: GolferScore[] = [];
 
-    const pos = cols[0]?.trim() ?? "";
-    const playerName = cols[1]?.trim() ?? "";
-    const scoreRaw = cols[2]?.trim() ?? "";
-    const r1 = parseInt(cols[3]);
-    const r2 = parseInt(cols[4]);
-    const r3 = parseInt(cols[5]);
-    const r4 = parseInt(cols[6]);
-    const tot = parseInt(cols[7]);
-    // ScoreFmt is the last column — clean integer score
+  for (let i = dataStart; i < lines.length; i++) {
+    const cols = parseCsvLine(lines[i]);
+    if (cols.length < 4) continue;
+
+    const pos        = cols[0]?.trim() ?? "";
+    // cols[1] = movement indicator — skipped
+    const playerName = cols[2]?.trim() ?? "";
+    const scoreRaw   = cols[3]?.trim() ?? "";
+    // cols[4] = TODAY, cols[5] = THRU
+    const r1  = parseInt(cols[6]);
+    const r2  = parseInt(cols[7]);
+    const r3  = parseInt(cols[8]);
+    const r4  = parseInt(cols[9]);
+    const tot = parseInt(cols[10]);
     const scoreFmt = parseInt(cols[cols.length - 1]);
 
-    const isCut = scoreRaw.toUpperCase() === "CUT" || pos.toUpperCase() === "CUT";
-    const isWD = scoreRaw.toUpperCase() === "WD" || pos.toUpperCase() === "WD";
-    const isWinner = pos === "1";
+    if (!playerName || playerName.toUpperCase() === "PLAYER") continue;
+
+    const isCut    = scoreRaw.toUpperCase() === "CUT" || pos.toUpperCase() === "CUT";
+    const isWD     = scoreRaw.toUpperCase() === "WD"  || pos.toUpperCase() === "WD";
+    const isWinner = pos.trim() === "1";
 
     let finalScore: number;
     if (isCut) {
-      // Highest 4-day total + 2 strokes penalty, convert to relative-to-par
-      // We store as relative-to-par. Estimate par as 72 per round = 288 for 4 rounds
       finalScore = (highestTotalStrokes + 2) - 288;
     } else if (isWD) {
       finalScore = highestTotalStrokes - 288;
     } else if (!isNaN(scoreFmt)) {
       finalScore = scoreFmt;
+    } else if (scoreRaw === "E") {
+      finalScore = 0;
     } else {
-      // Fallback: try parsing the SCORE column directly
-      if (scoreRaw === "E") {
-        finalScore = 0;
-      } else {
-        finalScore = parseInt(scoreRaw.replace("+", "")) || 0;
-      }
+      const parsed = parseInt(scoreRaw.replace("+", ""));
+      finalScore = isNaN(parsed) ? 0 : parsed;
     }
 
     scores.push({
@@ -115,19 +132,19 @@ export function parseEspnCsv(csvText: string): GolferScore[] {
 }
 
 // ─── SCORE LOOKUP ─────────────────────────────────────────────────────────
-// Find a golfer in the live scores, respecting name mappings and overrides
 
 export function findGolferScore(
   golferName: string,
   liveScores: GolferScore[],
-  nameMappings: Record<string, string>, // adminName → espnName
+  nameMappings: Record<string, string>,
   overrides: AdminOverride[]
 ): GolferScore | null {
-  // Check for admin override first
-  const override = overrides.find(o => namesMatch(o.golferName, golferName) || namesMatch(o.golferName, nameMappings[golferName] ?? ""));
+  const override = overrides.find(o =>
+    namesMatch(o.golferName, golferName) ||
+    namesMatch(o.golferName, nameMappings[normalizeName(golferName)] ?? "")
+  );
   if (override) {
-    const baseScore = liveScores.reduce((max, g) => (g.totalStrokes ?? 0) > (max.totalStrokes ?? 0) ? g : max, liveScores[0]);
-    const highestTotal = baseScore?.totalStrokes ?? 288;
+    const highestTotal = liveScores.reduce((max, g) => Math.max(max, g.totalStrokes ?? 288), 288);
     return {
       espnName: golferName,
       position: override.overrideStatus,
@@ -137,16 +154,14 @@ export function findGolferScore(
           ? highestTotal - 288
           : (override.customScore ?? 0),
       isCut: override.overrideStatus === "CUT",
-      isWD: override.overrideStatus === "WD",
+      isWD:  override.overrideStatus === "WD",
       isWinner: false
     };
   }
 
-  // Try direct match
   let found = liveScores.find(g => namesMatch(g.espnName, golferName));
   if (found) return found;
 
-  // Try via name mapping
   const mappedName = nameMappings[normalizeName(golferName)];
   if (mappedName) {
     found = liveScores.find(g => namesMatch(g.espnName, mappedName));
@@ -165,149 +180,82 @@ export function calculateMajorScore(
   overrides: AdminOverride[],
   majorFinalized: boolean
 ): MajorScore {
-  // Find the worst score in the field for "missing" golfer penalty
   const worstScore = liveScores.length > 0
     ? Math.max(...liveScores.map(g => g.score))
     : 20;
 
   const pickResults: PickResult[] = picks.map(pick => {
-    const golferScore = findGolferScore(pick.golferName, liveScores, nameMappings, overrides);
-
-    if (!golferScore) {
-      // Golfer not found in sheet — worst score penalty
-      return {
-        pick,
-        score: worstScore,
-        counted: false,
-        rawScore: worstScore,
-        status: "missing" as const
-      };
-    }
-
+    const gs = findGolferScore(pick.golferName, liveScores, nameMappings, overrides);
+    if (!gs) return { pick, score: worstScore, counted: false, rawScore: worstScore, status: "missing" as const };
     let status: PickResult["status"] = "active";
-    if (golferScore.isWinner) status = "winner";
-    else if (golferScore.isCut) status = "cut";
-    else if (golferScore.isWD) status = "wd";
-
-    return {
-      pick,
-      score: golferScore.score,
-      counted: false,
-      rawScore: golferScore.score,
-      status
-    };
+    if (gs.isWinner) status = "winner";
+    else if (gs.isCut) status = "cut";
+    else if (gs.isWD)  status = "wd";
+    return { pick, score: gs.score, counted: false, rawScore: gs.score, status };
   });
 
-  // Sort by score ascending (best = lowest in golf), mark best 3 as counted
   const sorted = [...pickResults].sort((a, b) => a.score - b.score);
   sorted[0].counted = true;
   sorted[1].counted = true;
   sorted[2].counted = true;
 
-  // Sum the best 3
-  const countedScore = sorted
-    .filter(r => r.counted)
-    .reduce((sum, r) => sum + r.score, 0);
+  const countedScore = sorted.filter(r => r.counted).reduce((sum, r) => sum + r.score, 0);
 
-  // Bonus calculation — only one bonus per major, take the best applicable
-  let bonus = 0;
-  let bonusReason: string | undefined;
-  let winnersHit = 0;
-  let topPickWon = false;
+  let bonus = 0, bonusReason: string | undefined, winnersHit = 0, topPickWon = false;
 
   for (const result of pickResults) {
     if (result.status === "winner") {
       winnersHit++;
-      const tierBonus = ODDS_BONUSES[result.pick.tier];
+      const tb = ODDS_BONUSES[result.pick.tier];
       if (result.pick.isTopPick) {
         topPickWon = true;
-        const topBonus = tierBonus.topPickBonus; // negative number
-        if (topBonus < bonus) {
-          bonus = topBonus;
-          bonusReason = `Top Pick winner (${tierBonus.label}) → ${topBonus} strokes`;
-        }
+        if (tb.topPickBonus < bonus) { bonus = tb.topPickBonus; bonusReason = `Top Pick winner (${tb.label}) → ${tb.topPickBonus} strokes`; }
       } else {
-        const stdBonus = tierBonus.standardBonus;
-        if (stdBonus < bonus) {
-          bonus = stdBonus;
-          bonusReason = `Winner picked (${tierBonus.label}) → ${stdBonus} strokes`;
-        }
+        if (tb.standardBonus < bonus) { bonus = tb.standardBonus; bonusReason = `Winner picked (${tb.label}) → ${tb.standardBonus} strokes`; }
       }
     }
   }
 
-  return {
-    majorId: picks[0]?.isTopPick ? ("" as MajorId) : ("" as MajorId), // set by caller
-    pickResults,
-    countedScore,
-    bonus,
-    bonusReason,
-    finalScore: countedScore + bonus,
-    winnersHit,
-    topPickWon,
-    finalized: majorFinalized
-  };
+  return { majorId: "" as MajorId, pickResults, countedScore, bonus, bonusReason, finalScore: countedScore + bonus, winnersHit, topPickWon, finalized: majorFinalized };
 }
 
-// ─── STANDINGS CALCULATION ────────────────────────────────────────────────
+// ─── STANDINGS ────────────────────────────────────────────────────────────
 
 export function calculateStandings(
   entries: Entry[],
   majorScores: Record<string, Partial<Record<MajorId, MajorScore>>>
 ): EntryStandings[] {
   const standings: EntryStandings[] = entries.map(entry => {
-    const entryMajorScores = majorScores[entry.id] ?? {};
-    const majorIds = Object.keys(entryMajorScores) as MajorId[];
-
-    const totalScore = majorIds.reduce((sum, mid) => {
-      return sum + (entryMajorScores[mid]?.finalScore ?? 0);
-    }, 0);
-
-    const totalWinnersHit = majorIds.reduce((sum, mid) => {
-      return sum + (entryMajorScores[mid]?.winnersHit ?? 0);
-    }, 0);
-
-    const totalTopPickWins = majorIds.reduce((sum, mid) => {
-      return sum + (entryMajorScores[mid]?.topPickWon ? 1 : 0);
-    }, 0);
-
+    const ems = majorScores[entry.id] ?? {};
+    const mids = Object.keys(ems) as MajorId[];
     return {
       entryId: entry.id,
       entrantName: entry.entrantName,
-      totalScore,
-      majorScores: entryMajorScores,
-      completedMajors: majorIds.length,
-      totalWinnersHit,
-      totalTopPickWins
+      totalScore: mids.reduce((s, m) => s + (ems[m]?.finalScore ?? 0), 0),
+      majorScores: ems,
+      completedMajors: mids.length,
+      totalWinnersHit: mids.reduce((s, m) => s + (ems[m]?.winnersHit ?? 0), 0),
+      totalTopPickWins: mids.reduce((s, m) => s + (ems[m]?.topPickWon ? 1 : 0), 0)
     };
   });
 
-  // Sort: lowest score → most winners → most top pick wins
   standings.sort((a, b) => {
     if (a.totalScore !== b.totalScore) return a.totalScore - b.totalScore;
     if (a.totalWinnersHit !== b.totalWinnersHit) return b.totalWinnersHit - a.totalWinnersHit;
     return b.totalTopPickWins - a.totalTopPickWins;
   });
 
-  // Assign ranks (tied entries share a rank)
   let rank = 1;
   for (let i = 0; i < standings.length; i++) {
     if (i > 0) {
-      const prev = standings[i - 1];
-      const curr = standings[i];
-      const tied =
-        curr.totalScore === prev.totalScore &&
-        curr.totalWinnersHit === prev.totalWinnersHit &&
-        curr.totalTopPickWins === prev.totalTopPickWins;
+      const p = standings[i - 1], c = standings[i];
+      const tied = c.totalScore === p.totalScore && c.totalWinnersHit === p.totalWinnersHit && c.totalTopPickWins === p.totalTopPickWins;
       if (!tied) rank = i + 1;
     }
     standings[i].rank = rank;
   }
-
   return standings;
 }
-
-// ─── SCORE DISPLAY HELPERS ────────────────────────────────────────────────
 
 export function formatScore(score: number): string {
   if (score === 0) return "E";
@@ -315,7 +263,7 @@ export function formatScore(score: number): string {
 }
 
 export function scoreColor(score: number): string {
-  if (score < 0) return "text-red-400";   // under par = red in golf
+  if (score < 0) return "text-red-400";
   if (score === 0) return "text-white";
-  return "text-gray-400";                 // over par = gray
+  return "text-gray-400";
 }
