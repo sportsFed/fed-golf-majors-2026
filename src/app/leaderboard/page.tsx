@@ -56,6 +56,7 @@ export default function LeaderboardPage() {
   const [lastUpdated, setLastUpdated] = useState("");
   const [expandedEntry, setExpandedEntry] = useState<string | null>(null);
   const [mastersMajorInfo, setMastersMajorInfo] = useState<MajorInfo | null>(null);
+  const [myPicksSubmitted, setMyPicksSubmitted] = useState(false);
   const [, setTick] = useState(0);
 
   const fetchData = useCallback(async () => {
@@ -75,6 +76,16 @@ export default function LeaderboardPage() {
           .filter((m: any) => ["locked","active","finalized"].includes(m.status))
           .map((m: any) => m.id as MajorId);
         setActiveMajorIds(active);
+      }
+      if (session?.entryId) {
+        const picksRes = await fetch(
+          `/api/picks/my-picks?entryId=${session.entryId}`
+        );
+        if (picksRes.ok) {
+          const picksData = await picksRes.json();
+          const mastersPicks = picksData.majors?.masters?.picks ?? [];
+          setMyPicksSubmitted(mastersPicks.length === 5);
+        }
       }
     } catch {}
     finally { setLoading(false); }
@@ -132,14 +143,13 @@ export default function LeaderboardPage() {
     ? standings.find(e => e.entryId === session.entryId) ?? null
     : null;
   const deadline = mastersMajorInfo?.deadline;
-  const hasPicks = (myEntry?.completedMajors ?? 0) > 0;
   const countdown = formatCountdown(deadline);
   const deadlineLabel = formatDeadline(deadline);
 
   const PreTournamentRibbon = () => {
     if (!session || !myEntry) return null;
 
-    if (hasPicks) {
+    if (myPicksSubmitted) {
       return (
         <div style={{
           background: "rgba(17,45,28,0.8)",
