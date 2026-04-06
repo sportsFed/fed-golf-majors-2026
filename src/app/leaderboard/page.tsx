@@ -13,6 +13,39 @@ const ALL_MAJORS: { id: MajorId; name: string; short: string }[] = [
   { id: "british-open", name: "The Open Championship", short: "British" }
 ];
 
+interface MajorInfo {
+  deadline?: string; // ISO string
+  [key: string]: any;
+}
+
+function formatDeadline(iso: string | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const day = days[d.getDay()];
+  const month = months[d.getMonth()];
+  const date = d.getDate();
+  const h = d.getHours();
+  const m = d.getMinutes().toString().padStart(2,"0");
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `Deadline: ${day}, ${month} ${date} · ${hour12}:${m} ${ampm} CT`;
+}
+
+function formatCountdown(iso: string | undefined): string {
+  if (!iso) return "";
+  const diff = new Date(iso).getTime() - Date.now();
+  if (diff <= 0) return "Deadline passed";
+  const totalMinutes = Math.floor(diff / 60000);
+  const days = Math.floor(totalMinutes / (60 * 24));
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const mins = totalMinutes % 60;
+  if (days > 0) return `${days}d ${hours}h remaining`;
+  if (hours > 0) return `${hours}h ${mins}m remaining`;
+  return `${mins}m remaining`;
+}
+
 export default function LeaderboardPage() {
   const router = useRouter();
   const session = getSession();
@@ -22,6 +55,9 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState("");
   const [expandedEntry, setExpandedEntry] = useState<string | null>(null);
+  const [mastersMajorInfo, setMastersMajorInfo] = useState<MajorInfo | null>(null);
+  const [myPicksSubmitted, setMyPicksSubmitted] = useState(false);
+  const [, setTick] = useState(0);
 
   const fetchData = useCallback(async () => {
     try {
@@ -41,6 +77,16 @@ export default function LeaderboardPage() {
           .map((m: any) => m.id as MajorId);
         setActiveMajorIds(active);
       }
+      if (session?.entryId) {
+        const picksRes = await fetch(
+          `/api/picks/my-picks?entryId=${session.entryId}`
+        );
+        if (picksRes.ok) {
+          const picksData = await picksRes.json();
+          const mastersPicks = picksData.majors?.masters?.picks ?? [];
+          setMyPicksSubmitted(mastersPicks.length === 5);
+        }
+      }
     } catch {}
     finally { setLoading(false); }
   }, []);
@@ -49,6 +95,20 @@ export default function LeaderboardPage() {
     if (!session) { router.push("/login"); return; }
     fetchData();
     const iv = setInterval(fetchData, 5 * 60 * 1000);
+    return () => clearInterval(iv);
+  }, []);
+
+  // Fetch Masters major info for deadline display
+  useEffect(() => {
+    fetch("/api/picks/major-info?majorId=masters")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setMastersMajorInfo(d); })
+      .catch(() => {});
+  }, []);
+
+  // Countdown tick every minute
+  useEffect(() => {
+    const iv = setInterval(() => setTick(t => t + 1), 60 * 1000);
     return () => clearInterval(iv);
   }, []);
 
@@ -78,14 +138,138 @@ export default function LeaderboardPage() {
     ? `44px 1fr ${visibleMajors.map(()=>"78px").join(" ")} 88px 48px`
     : "44px 1fr 160px";
 
+  // Personalized status ribbon (pre-tournament only)
+  const myEntry = session
+    ? standings.find(e => e.entryId === session.entryId) ?? null
+    : null;
+  const deadline = mastersMajorInfo?.deadline;
+  const countdown = formatCountdown(deadline);
+  const deadlineLabel = formatDeadline(deadline);
+
+  const PreTournamentRibbon = () => {
+    if (!session || !myEntry) return null;
+
+    if (myPicksSubmitted) {
+      return (
+        <div style={{
+          background: "rgba(17,45,28,0.8)",
+          border: "1px solid rgba(77,189,136,0.3)",
+          borderRadius: 12,
+          padding: "20px 24px",
+          marginBottom: 24,
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.25rem", color: "#f0faf4", fontWeight: 700 }}>
+              {session.entrantName}
+            </span>
+            <span style={{
+              background: "rgba(77,189,136,0.18)",
+              border: "1px solid rgba(77,189,136,0.4)",
+              borderRadius: 20,
+              padding: "3px 12px",
+              fontSize: "0.78rem",
+              fontWeight: 700,
+              color: "var(--green-400)",
+              letterSpacing: "0.01em",
+            }}>
+              ✓ Picks Submitted
+            </span>
+          </div>
+          <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.88rem", lineHeight: 1.5 }}>
+            You're all set for The Masters. You can update your picks any time before the deadline.
+          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+            {deadlineLabel && (
+              <span style={{ color: "#facc15", fontSize: "0.8rem", fontFamily: "'DM Mono', monospace" }}>
+                {deadlineLabel}
+              </span>
+            )}
+            {countdown && (
+              <span style={{ color: "var(--green-400)", fontSize: "0.8rem", fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>
+                {countdown}
+              </span>
+            )}
+          </div>
+          <div>
+            <button
+              className="btn-secondary"
+              style={{ fontSize: "0.82rem", padding: "6px 14px" }}
+              onClick={() => router.push("/picks")}
+            >
+              Edit picks →
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // No picks submitted
+    return (
+      <div style={{
+        background: "rgba(40,15,15,0.8)",
+        border: "1px solid rgba(239,68,68,0.3)",
+        borderRadius: 12,
+        padding: "20px 24px",
+        marginBottom: 24,
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <span style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.25rem", color: "#f0faf4", fontWeight: 700 }}>
+            {session.entrantName}
+          </span>
+          <span style={{
+            background: "rgba(239,68,68,0.15)",
+            border: "1px solid rgba(239,68,68,0.4)",
+            borderRadius: 20,
+            padding: "3px 12px",
+            fontSize: "0.78rem",
+            fontWeight: 700,
+            color: "#f87171",
+            letterSpacing: "0.01em",
+          }}>
+            ⚠ Picks Not Submitted
+          </span>
+        </div>
+        <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.88rem", lineHeight: 1.5 }}>
+          You still owe picks for The Masters.
+        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          {deadlineLabel && (
+            <span style={{ color: "#facc15", fontSize: "0.8rem", fontFamily: "'DM Mono', monospace" }}>
+              {deadlineLabel}
+            </span>
+          )}
+          {countdown && (
+            <span style={{ color: "#f87171", fontSize: "0.8rem", fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>
+              {countdown}
+            </span>
+          )}
+        </div>
+        <div>
+          <button
+            className="btn-primary"
+            style={{ fontSize: "0.88rem", padding: "8px 20px" }}
+            onClick={() => router.push("/picks")}
+          >
+            Submit My Picks →
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div style={{ minHeight: "100vh", background: "var(--fairway-dark)" }}>
       <Nav />
       <div style={{ maxWidth: 1060, margin: "0 auto", padding: "32px 20px" }}>
 
         {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
-          <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>  <div>
             <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "2rem", color: "#f0faf4", margin: 0 }}>Leaderboard</h1>
             {lastUpdated && <p style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginTop: 4, fontFamily: "'DM Mono', monospace" }}>
               Updated {lastUpdated} · auto-refreshes every 5 min
@@ -159,7 +343,8 @@ export default function LeaderboardPage() {
                 <div key={entry.entryId} className="leaderboard-row" style={{ animationDelay: `${idx*0.025}s` }}>
                   <div
                     onClick={() => setExpandedEntry(isExpanded ? null : entry.entryId)}
-                    style={{ display: "grid", gridTemplateColumns: gridCols, padding: "12px 16px", alignItems: "center", cursor: "pointer", background: isMe?"rgba(77,189,136,0.08)":"rgba(17,45,28,0.5)", border: `1px solid ${isMe?"rgba(77,189,136,0.3)":"var(--border)"}`, borderRadius: isExpanded?"10px 10px 0 0":10 }}>
+                    style={{ display: "grid", gridTemplateColumns: gridCols, padding: "12px 16px", alignItems: "center", cursor: "pointer", background: isMe?"rgba(77,189,136,0.08)":"rgba(17,45,28,0.6)", borderRadius: 8, border: `1px solid ${isMe?"rgba(77,189,136,0.25)":"var(--border)"}` }}
+                  >
                     <span style={{ fontFamily: "'DM Mono', monospace", fontWeight: 700, fontSize: "0.9rem", color: idx===0?"#facc15":idx===1?"#d1d5db":idx===2?"#cd7c2f":"var(--text-muted)" }}>{entry.rank}</span>
                     <span style={{ color: isMe?"var(--green-400)":"#f0faf4", fontWeight: isMe?600:400, fontSize: "0.92rem", display: "flex", alignItems: "center", gap: 6 }}>
                       {entry.entrantName}
@@ -184,8 +369,8 @@ export default function LeaderboardPage() {
                   {isExpanded && (
                     <div style={{ background: "rgba(10,31,20,0.95)", border: "1px solid var(--border)", borderTop: "none", borderRadius: "0 0 10px 10px", padding: "16px 20px" }}>
                       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginBottom: 14 }}>
-                        <button className="btn-secondary" style={{ fontSize: "0.78rem", padding: "5px 12px" }} onClick={e => { e.stopPropagation(); router.push(`/entry/${entry.entryId}`); }}>Full entry →</button>
-                        {!isMe && <button className="btn-secondary" style={{ fontSize: "0.78rem", padding: "5px 12px" }} onClick={e => { e.stopPropagation(); router.push(`/head-to-head?a=${session?.entryId}&b=${entry.entryId}`); }}>H2H vs me →</button>}
+                        <button className="btn-secondary" style={{ fontSize: "0.78rem", padding: "5px 12px" }} onClick={e => { e.stopPropagation(); router.push(`/entry/${entry.entryId}`); }}>Full Entry</button>
+                        {!isMe && <button className="btn-secondary" style={{ fontSize: "0.78rem", padding: "5px 12px" }} onClick={e => { e.stopPropagation(); router.push(`/head-to-head?a=${session?.entryId}&b=${entry.entryId}`); }}>Head-to-Head</button>}
                       </div>
                       {visibleMajors.map(m => {
                         const ms = entry.majorScores[m.id];
@@ -197,7 +382,7 @@ export default function LeaderboardPage() {
                             </div>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                               {ms.pickResults.map((pr, i) => (
-                                <div key={i} style={{ background: pr.counted?"rgba(77,189,136,0.1)":"rgba(0,0,0,0.2)", border: `1px solid ${pr.counted?"rgba(77,189,136,0.3)":"var(--border)"}`, borderRadius: 6, padding: "4px 10px", opacity: pr.counted?1:0.45, display: "flex", alignItems: "center", gap: 5 }}>
+                                <div key={i} style={{ background: pr.counted?"rgba(77,189,136,0.1)":"rgba(0,0,0,0.2)", border: `1px solid ${pr.counted?"rgba(77,189,136,0.3)":"var(--border)"}`, borderRadius: 6, padding: "4px 10px", display: "flex", alignItems: "center", gap: 6 }}>
                                   {pr.pick.isTopPick && <span style={{ color: "#facc15", fontSize: "0.65rem" }}>⭐</span>}
                                   <span style={{ color: "#f0faf4", fontSize: "0.8rem" }}>{pr.pick.golferName}</span>
                                   <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", color: pr.score<0?"#f87171":pr.score===0?"#f0faf4":"#6b7280" }}>
@@ -219,6 +404,9 @@ export default function LeaderboardPage() {
         ) : (
           /* ── PRE-TOURNAMENT ROSTER ── */
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            {/* Personalized status ribbon */}
+            <PreTournamentRibbon />
+
             <div style={{ display: "grid", gridTemplateColumns: gridCols, padding: "6px 16px", color: "var(--text-muted)", fontSize: "0.7rem", fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: "0.08em" }}>
               <span>#</span><span>Entrant</span><span style={{ textAlign: "center" }}>Masters Picks</span>
             </div>
@@ -226,7 +414,7 @@ export default function LeaderboardPage() {
               const hasPicks = entry.completedMajors > 0;
               const isMe = entry.entryId === session?.entryId;
               return (
-                <div key={entry.entryId} className="leaderboard-row" style={{ animationDelay: `${idx*0.02}s`, display: "grid", gridTemplateColumns: gridCols, padding: "12px 16px", alignItems: "center", background: isMe?"rgba(77,189,136,0.08)":"rgba(17,45,28,0.5)", border: `1px solid ${isMe?"rgba(77,189,136,0.3)":"var(--border)"}`, borderRadius: 10 }}>
+                <div key={entry.entryId} className="leaderboard-row" style={{ animationDelay: `${idx*0.02}s`, display: "grid", gridTemplateColumns: gridCols, padding: "12px 16px", alignItems: "center", background: isMe?"rgba(77,189,136,0.08)":"rgba(17,45,28,0.6)", borderRadius: 8, border: `1px solid ${isMe?"rgba(77,189,136,0.25)":"var(--border)"}` }}>
                   <span style={{ fontFamily: "'DM Mono', monospace", color: "var(--text-muted)", fontSize: "0.88rem" }}>{idx+1}</span>
                   <span style={{ color: isMe?"var(--green-400)":"#f0faf4", fontSize: "0.92rem", fontWeight: isMe?600:400, display: "flex", alignItems: "center", gap: 6 }}>
                     {entry.entrantName}
