@@ -71,6 +71,14 @@ export default function AdminPage() {
   const [newPin, setNewPin] = useState("");
   const [resetMsg, setResetMsg] = useState<Record<string, string>>({});
   const [expandedEntryPicks, setExpandedEntryPicks] = useState<string | null>(null);
+  const [editingPicksEntryId, setEditingPicksEntryId] = useState<string | null>(null);
+  const [editingMajorId, setEditingMajorId] = useState<MajorId>("masters");
+  const [editPicks, setEditPicks] = useState<(any | null)[]>([null,null,null,null,null]);
+  const [editField, setEditField] = useState<any[]>([]);
+  const [editActiveSlot, setEditActiveSlot] = useState<number | null>(null);
+  const [editSearch, setEditSearch] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editMsg, setEditMsg] = useState("");
 
   useEffect(() => {
     if (!session) { router.push("/login"); return; }
@@ -229,6 +237,65 @@ export default function AdminPage() {
     const res = await fetch("/api/admin/finalize", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ majorId: activeMajor }) });
     const d = await res.json();
     alert(d.message ?? (res.ok ? "Major finalized!" : "Error finalizing."));
+  }
+
+  async function startEditingPicks(entryId: string, majorId: MajorId) {
+    setEditingPicksEntryId(entryId);
+    setEditingMajorId(majorId);
+    setEditMsg("");
+    setEditActiveSlot(null);
+    setEditSearch("");
+
+    const [fieldRes, entryRes] = await Promise.all([
+      fetch(`/api/picks/field?majorId=${majorId}`),
+      fetch(`/api/admin/entries/pick-data?entryId=${entryId}`)
+    ]);
+    const fieldData = await fieldRes.json();
+    const entryData = await entryRes.json();
+    const golfers = fieldData.golfers ?? [];
+    setEditField(golfers);
+
+    const existingPicks = entryData.majors?.[majorId]?.picks ?? [];
+    const loaded: (any | null)[] = [null,null,null,null,null];
+    existingPicks.forEach((p: any, i: number) => {
+      if (i >= 5) return;
+      const match = golfers.find((g: any) =>
+        g.id === p.golferId ||
+        g.displayName.toLowerCase() === (p.golferName ?? "").toLowerCase()
+      );
+      loaded[i] = match ?? { id: p.golferId, displayName: p.golferName, tier: p.tier ?? "field" };
+    });
+    setEditPicks(loaded);
+  }
+
+  async function saveAdminPicks(entryId: string) {
+    if (!editPicks.every(Boolean)) { setEditMsg("All 5 slots must be filled."); return; }
+    setEditSaving(true); setEditMsg("");
+    try {
+      const res = await fetch("/api/picks/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entryId,
+          majorId: editingMajorId,
+          picks: editPicks.map((p: any, i: number) => ({
+            golferId: p.id,
+            golferName: p.displayName,
+            isTopPick: i === 0,
+            tier: p.tier ?? "field"
+          })),
+          adminOverride: true
+        })
+      });
+      if (res.ok) {
+        setEditMsg("Picks saved successfully.");
+        loadTabData();
+      } else {
+        const d = await res.json();
+        setEditMsg(d.error ?? "Save failed.");
+      }
+    } catch { setEditMsg("Save failed."); }
+    finally { setEditSaving(false); }
   }
 
   async function resetPin(entryId: string) {
@@ -592,6 +659,138 @@ export default function AdminPage() {
                                   );
                                 })
                             }
+
+                            {/* Admin pick editing controls */}
+                            <div style={{ marginTop: 14, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+                              <div style={{ color: "var(--text-muted)", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8, fontWeight: 600 }}>Edit Picks (Admin)</div>
+                              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                {MAJORS.map(m => (
+                                  <button
+                                    key={m.id}
+                                    onClick={() => startEditingPicks(e.id, m.id)}
+                                    style={{
+                                      padding: "5px 12px", borderRadius: 20, fontSize: "0.78rem", cursor: "pointer",
+                                      fontFamily: "'DM Sans', sans-serif",
+                                      border: "1px solid rgba(250,204,21,0.4)",
+                                      background: "rgba(250,204,21,0.07)",
+                                      color: "#facc15"
+                                    }}
+                                  >
+                                    Edit {m.short} Picks
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {editingPicksEntryId === e.id && (
+                              <div style={{ marginTop: 16, background: "rgba(250,204,21,0.04)", border: "1px solid rgba(250,204,21,0.25)", borderRadius: 10, padding: "16px 18px" }}>
+                                {/* Header */}
+                                <div style={{ marginBottom: 12 }}>
+                                  <div style={{ color: "#facc15", fontWeight: 600, fontSize: "0.95rem", marginBottom: 4 }}>
+                                    Editing {MAJORS.find(m => m.id === editingMajorId)?.name} picks for {e.entrantName} (Admin)
+                                  </div>
+                                  <div style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>
+                                    ⚠ No deadline restriction — picks will be saved immediately.
+                                  </div>
+                                </div>
+
+                                {/* 5 pick slots */}
+                                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
+                                  {editPicks.map((pick, slotIdx) => (
+                                    <div
+                                      key={slotIdx}
+                                      onClick={() => setEditActiveSlot(slotIdx)}
+                                      style={{
+                                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                                        background: editActiveSlot === slotIdx ? "rgba(250,204,21,0.12)" : "rgba(17,45,28,0.7)",
+                                        border: `1px solid ${editActiveSlot === slotIdx ? "#facc15" : "var(--border)"}`,
+                                        borderRadius: 8, padding: "8px 12px", cursor: "pointer"
+                                      }}
+                                    >
+                                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        <span style={{ color: "var(--text-muted)", fontSize: "0.7rem", fontWeight: 600, minWidth: 90, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                                          {slotIdx === 0 ? "Slot 1 – Top Pick" : `Slot ${slotIdx + 1}`}
+                                        </span>
+                                        {pick ? (
+                                          <>
+                                            <span style={{ color: "#f0faf4", fontSize: "0.85rem" }}>{pick.displayName}</span>
+                                            <span className={`tier-badge tier-${pick.tier}`} style={{ fontSize: "0.62rem" }}>{pick.tier}</span>
+                                          </>
+                                        ) : (
+                                          <span style={{ color: "var(--text-muted)", fontSize: "0.82rem", fontStyle: "italic" }}>— empty —</span>
+                                        )}
+                                      </div>
+                                      {pick && (
+                                        <button
+                                          onClick={ev => { ev.stopPropagation(); const next = [...editPicks]; next[slotIdx] = null; setEditPicks(next); }}
+                                          style={{ background: "none", border: "none", color: "#6b7280", cursor: "pointer", fontSize: "0.85rem", padding: "0 4px" }}
+                                        >✕</button>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {/* Search + field list */}
+                                <div style={{ marginBottom: 14 }}>
+                                  <input
+                                    className="input"
+                                    placeholder="Search golfers…"
+                                    value={editSearch}
+                                    onChange={ev => setEditSearch(ev.target.value)}
+                                    style={{ marginBottom: 8 }}
+                                  />
+                                  <div style={{ maxHeight: 300, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
+                                    {editField
+                                      .filter(g => g.displayName.toLowerCase().includes(editSearch.toLowerCase()))
+                                      .map((golfer: any) => (
+                                        <div
+                                          key={golfer.id}
+                                          onClick={() => {
+                                            if (editActiveSlot === null) return;
+                                            const next = [...editPicks]; next[editActiveSlot] = golfer;
+                                            setEditPicks(next); setEditActiveSlot(null); setEditSearch("");
+                                          }}
+                                          style={{
+                                            display: "flex", alignItems: "center", justifyContent: "space-between",
+                                            background: "rgba(17,45,28,0.7)", border: "1px solid var(--border)",
+                                            borderRadius: 6, padding: "7px 12px",
+                                            cursor: editActiveSlot !== null ? "pointer" : "default",
+                                            opacity: editActiveSlot !== null ? 1 : 0.5
+                                          }}
+                                        >
+                                          <span style={{ color: "#f0faf4", fontSize: "0.83rem" }}>{golfer.displayName}</span>
+                                          <span className={`tier-badge tier-${golfer.tier}`} style={{ fontSize: "0.62rem" }}>{golfer.tier}</span>
+                                        </div>
+                                      ))
+                                    }
+                                  </div>
+                                </div>
+
+                                {/* Action buttons */}
+                                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                                  <button
+                                    className="btn-gold"
+                                    onClick={() => saveAdminPicks(e.id)}
+                                    disabled={editSaving}
+                                    style={{ padding: "8px 20px", fontSize: "0.88rem" }}
+                                  >
+                                    {editSaving ? "Saving…" : "Save Picks"}
+                                  </button>
+                                  <button
+                                    className="btn-secondary"
+                                    onClick={() => { setEditingPicksEntryId(null); setEditMsg(""); }}
+                                    style={{ padding: "8px 16px", fontSize: "0.88rem" }}
+                                  >
+                                    Cancel
+                                  </button>
+                                  {editMsg && (
+                                    <span style={{ color: editMsg.includes("saved") ? "var(--green-400)" : "#f87171", fontSize: "0.83rem" }}>
+                                      {editMsg}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
 
