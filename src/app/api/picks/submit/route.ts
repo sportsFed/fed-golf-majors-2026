@@ -4,17 +4,19 @@ import type { MajorId } from "@/types";
 
 export async function POST(req: NextRequest) {
   try {
-    const { entryId, majorId, picks } = await req.json();
+    const { entryId, majorId, picks, adminOverride } = await req.json();
     if (!entryId || !majorId || !picks || picks.length !== 5)
       return NextResponse.json({ error: "Invalid submission — need entryId, majorId, and exactly 5 picks." }, { status: 400 });
 
-    // Check deadline
-    const majorSnap = await adminDb.collection("majors").doc(majorId).get();
-    const major = majorSnap.data();
-    if (major?.pickDeadline && new Date(major.pickDeadline) < new Date())
-      return NextResponse.json({ error: "Pick deadline has passed." }, { status: 403 });
-    if (major?.status === "locked" || major?.status === "finalized")
-      return NextResponse.json({ error: "Picks are locked for this major." }, { status: 403 });
+    if (!adminOverride) {
+      // Check deadline
+      const majorSnap = await adminDb.collection("majors").doc(majorId).get();
+      const major = majorSnap.data();
+      if (major?.pickDeadline && new Date(major.pickDeadline) < new Date())
+        return NextResponse.json({ error: "Pick deadline has passed." }, { status: 403 });
+      if (major?.status === "locked" || major?.status === "finalized")
+        return NextResponse.json({ error: "Picks are locked for this major." }, { status: 403 });
+    }
 
     // Verify entry exists
     const entrySnap = await adminDb.collection("entries").doc(entryId).get();
