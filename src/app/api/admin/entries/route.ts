@@ -31,3 +31,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Server error." }, { status: 500 });
   }
 }
+
+// Manual score override endpoint
+export async function PATCH(req: NextRequest) {
+  try {
+    const { entryId, majorId, manualScore } = await req.json();
+    if (!entryId || !majorId || manualScore === undefined || manualScore === null) {
+      return NextResponse.json({ error: "Missing fields." }, { status: 400 });
+    }
+    const score = Number(manualScore);
+    if (isNaN(score)) {
+      return NextResponse.json({ error: "manualScore must be a number." }, { status: 400 });
+    }
+    await adminDb.collection("entries").doc(entryId).set(
+      {
+        majors: {
+          [majorId]: {
+            manualScore: score,
+            picks: [],
+            submittedAt: "admin-override"
+          }
+        }
+      },
+      { merge: true }
+    );
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return NextResponse.json({ error: "Server error." }, { status: 500 });
+  }
+}
