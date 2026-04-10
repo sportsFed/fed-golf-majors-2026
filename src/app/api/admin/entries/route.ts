@@ -3,7 +3,9 @@ import { adminDb } from "@/lib/firebase-admin";
 import { hashPin } from "@/lib/auth";
 
 export async function GET() {
-  const snap = await adminDb.collection("entries").get();
+  const snap = await adminDb.collection("entries")
+    .select("id", "entrantName", "email", "pin", "createdAt", "majors")
+    .get();
   const entries = snap.docs
     .map(d => {
       const data = d.data();
