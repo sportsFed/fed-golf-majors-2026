@@ -119,10 +119,29 @@ export async function GET() {
 
       for (const entry of entries) {
         const majorEntry = entry.majors?.[major.id as MajorId];
-        if (!majorEntry?.picks?.length) continue;
-        const ms = calculateMajorScore(majorEntry.picks, liveScores, nameMappings, overrides, false);
-        ms.majorId = major.id as MajorId;
-        majorScores[entry.id][major.id as MajorId] = ms;
+
+        // If the entry has real picks, score them normally
+        if (majorEntry?.picks?.length) {
+          const ms = calculateMajorScore(majorEntry.picks, liveScores, nameMappings, overrides, false);
+          ms.majorId = major.id as MajorId;
+          majorScores[entry.id][major.id as MajorId] = ms;
+          continue;
+        }
+
+        // If no picks but a manualScore was set by admin, use it as a synthetic MajorScore
+        if (majorEntry?.manualScore !== undefined && majorEntry.manualScore !== null) {
+          const syntheticMs: MajorScore = {
+            majorId: major.id as MajorId,
+            finalScore: majorEntry.manualScore,
+            countedScore: majorEntry.manualScore,
+            bonus: 0,
+            bonusReason: "",
+            winnersHit: 0,
+            topPickWon: false,
+            pickResults: []
+          };
+          majorScores[entry.id][major.id as MajorId] = syntheticMs;
+        }
       }
 
       // Auto-snapshot throttled to every 30 min
