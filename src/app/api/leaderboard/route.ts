@@ -27,7 +27,7 @@ async function maybeSnapshot(majorId: string, liveScores: ReturnType<typeof pars
       const pickDetail = ms.pickResults.map(pr => ({
         golfer: pr.pick.golferName, score: pr.score,
         status: pr.status, counted: pr.counted, isTopPick: pr.pick.isTopPick
-      });
+      }));
       const snapshotId = `${entry.id}_${majorId}_${Date.now()}_${count}`;
       batch.set(adminDb.collection("scoreHistory").doc(snapshotId), {
         entryId: entry.id, entrantName: entry.entrantName,
