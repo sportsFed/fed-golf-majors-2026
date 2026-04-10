@@ -138,7 +138,8 @@ export async function GET() {
             bonusReason: "",
             winnersHit: 0,
             topPickWon: false,
-            pickResults: []
+            pickResults: [],
+            finalized: false,
           };
           majorScores[entry.id][major.id as MajorId] = syntheticMs;
         }
