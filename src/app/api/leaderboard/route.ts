@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
-import { parseEspnCsv, getWorstRoundScores, calculateMajorScore, calculateStandings, normalizeName } from "@/lib/scoring";
+import { parseEspnCsv, calculateMajorScore, calculateStandings, normalizeName } from "@/lib/scoring";
 import type { Entry, MajorId, AdminOverride, NameMapping, Major, MajorScore } from "@/types";
 
 // Simple in-memory throttle — prevents snapshot on every single request
@@ -27,7 +27,7 @@ async function maybeSnapshot(majorId: string, liveScores: ReturnType<typeof pars
       const pickDetail = ms.pickResults.map(pr => ({
         golfer: pr.pick.golferName, score: pr.score,
         status: pr.status, counted: pr.counted, isTopPick: pr.pick.isTopPick
-      }));
+      });
       const snapshotId = `${entry.id}_${majorId}_${Date.now()}_${count}`;
       batch.set(adminDb.collection("scoreHistory").doc(snapshotId), {
         entryId: entry.id, entrantName: entry.entrantName,
@@ -89,19 +89,15 @@ export async function GET() {
       }
 
       let liveScores: ReturnType<typeof parseEspnCsv> = [];
-      let csvText = "";
       if (major.sheetCsvUrl) {
         try {
           const csvRes = await fetch(major.sheetCsvUrl, { next: { revalidate: 300 } });
           if (csvRes.ok) {
-            csvText = await csvRes.text();
+            const csvText = await csvRes.text();
             liveScores = parseEspnCsv(csvText);
           }
         } catch {}
       }
-
-      // Compute worst-round scores for penalty assignment to no-pick entries
-      const worstScores = csvText ? getWorstRoundScores(csvText) : { r1: 0, r2: 0, r3: 0, r4: 0, total: 0 };
 
       // Use preloaded overrides/nameMappings for the active major; fall back to a fresh fetch for any other live major
       let overrides: AdminOverride[];
@@ -123,33 +119,7 @@ export async function GET() {
 
       for (const entry of entries) {
         const majorEntry = entry.majors?.[major.id as MajorId];
-        if (!majorEntry?.picks?.length) {
-          // Assign a penalty score for entries with no picks for this major.
-          // Sum only rounds that have been played (non-zero worst scores).
-          // r1–r4 from getWorstRoundScores are raw stroke totals (e.g. 84).
-          // Par per round is 72, so worst relative score per round = worstRound - 72.
-          // Rounds not yet played have a worst of 0, which we skip.
-          const roundPenalties = [
-            worstScores.r1 > 0 ? worstScores.r1 - 72 : 0,
-            worstScores.r2 > 0 ? worstScores.r2 - 72 : 0,
-            worstScores.r3 > 0 ? worstScores.r3 - 72 : 0,
-            worstScores.r4 > 0 ? worstScores.r4 - 72 : 0,
-          ];
-          const penaltyScore = roundPenalties.reduce((sum, r) => sum + r, 0);
-          const penaltyMs: MajorScore = {
-            majorId: major.id as MajorId,
-            pickResults: [],
-            countedScore: penaltyScore,
-            bonus: 0,
-            bonusReason: undefined,
-            finalScore: penaltyScore,
-            winnersHit: 0,
-            topPickWon: false,
-            finalized: false,
-          };
-          majorScores[entry.id][major.id as MajorId] = penaltyMs;
-          continue;
-        }
+        if (!majorEntry?.picks?.length) continue;
         const ms = calculateMajorScore(majorEntry.picks, liveScores, nameMappings, overrides, false);
         ms.majorId = major.id as MajorId;
         majorScores[entry.id][major.id as MajorId] = ms;
