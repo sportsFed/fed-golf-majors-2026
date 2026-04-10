@@ -360,7 +360,7 @@ export default function LeaderboardPage() {
                     onClick={() => setExpandedEntry(isExpanded ? null : entry.entryId)}
                     style={{
                       display: "grid", gridTemplateColumns: gridCols,
-                      padding: "11px 16px", alignItems: "center", cursor: "pointer",
+                      padding: "8px 14px", minHeight: 40, alignItems: "center", cursor: "pointer",
                       background: isMe ? "rgba(77,189,136,0.08)" : "rgba(17,45,28,0.5)",
                       border: `1px solid ${isMe ? "rgba(77,189,136,0.3)" : "var(--border)"}`,
                       borderRadius: isExpanded ? "10px 10px 0 0" : 10
@@ -369,14 +369,14 @@ export default function LeaderboardPage() {
                     <span style={{ fontFamily: "'DM Mono', monospace", fontWeight: 700, fontSize: "0.9rem", color: idx === 0 ? "#facc15" : idx === 1 ? "#d1d5db" : idx === 2 ? "#cd7c2f" : "var(--text-muted)" }}>
                       {entry.rank}
                     </span>
-                    <span style={{ color: isMe ? "var(--green-400)" : "#f0faf4", fontWeight: isMe ? 600 : 400, fontSize: "0.9rem", display: "flex", alignItems: "center", gap: 5 }}>
+                    <span style={{ color: isMe ? "var(--green-400)" : "#f0faf4", fontWeight: isMe ? 600 : 400, fontSize: "0.82rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 5 }}>
                       {entry.entrantName}
                       {isMe && <span style={{ fontSize: "0.65rem", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>(you)</span>}
                     </span>
                     {visibleMajors.map(m => {
                       const ms = entry.majorScores[m.id];
                       return (
-                        <span key={m.id} style={{ textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: "0.85rem" }}>
+                        <span key={m.id} style={{ textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: "0.78rem" }}>
                           {ms
                             ? <span style={{ color: scoreColor(ms.finalScore), fontWeight: 700 }}>
                                 {formatScore(ms.finalScore)}
@@ -387,7 +387,7 @@ export default function LeaderboardPage() {
                         </span>
                       );
                     })}
-                    <span style={{ textAlign: "center", fontFamily: "'DM Mono', monospace", fontWeight: 700, fontSize: "0.93rem", color: scoreColor(score) }}>
+                    <span style={{ textAlign: "center", fontFamily: "'DM Mono', monospace", fontWeight: 700, fontSize: "0.85rem", color: scoreColor(score) }}>
                       {score !== null ? formatScore(score) : "--"}
                     </span>
                     <span style={{ textAlign: "center", color: entry.totalWinnersHit > 0 ? "#facc15" : "var(--border)", fontFamily: "'DM Mono', monospace", fontSize: "0.85rem" }}>

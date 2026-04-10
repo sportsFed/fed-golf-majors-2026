@@ -149,7 +149,8 @@ export default function AnalysisPage() {
             </div>
 
             {/* Full golfer breakdown table */}
-            <div className="card" style={{ overflow: "hidden" }}>
+            <div className="card" style={{ overflowX: "auto" }}>
+              <div style={{ minWidth: 480 }}>
               <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
                 <div style={{ color: "var(--text-muted)", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
                   All Picked Golfers — {MAJOR_NAMES[majorId]}
@@ -174,7 +175,7 @@ export default function AnalysisPage() {
               </div>
 
               {/* Table header */}
-              <div style={{ display: "grid", gridTemplateColumns: tournamentActive ? "1fr 60px 60px 60px 60px 60px" : "1fr 60px 60px 60px", padding: "8px 20px", color: "var(--text-muted)", fontSize: "0.68rem", fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid var(--border)" }}>
+              <div style={{ display: "grid", gridTemplateColumns: tournamentActive ? "1fr 52px 52px 64px 44px 56px" : "1fr 52px 52px 64px", padding: "8px 20px", color: "var(--text-muted)", fontSize: "0.68rem", fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid var(--border)" }}>
                 <span>Golfer</span>
                 <span style={{ textAlign: "center" }}>Picks</span>
                 <span style={{ textAlign: "center" }}>⭐ Top</span>
@@ -194,17 +195,17 @@ export default function AnalysisPage() {
                   return (
                     <div key={g.name} style={{
                       display: "grid",
-                      gridTemplateColumns: tournamentActive ? "1fr 60px 60px 60px 60px 60px" : "1fr 60px 60px 60px",
+                      gridTemplateColumns: tournamentActive ? "1fr 52px 52px 64px 44px 56px" : "1fr 52px 52px 64px",
                       padding: "10px 20px", alignItems: "center",
                       borderBottom: idx < sortedGolfers.length - 1 ? "1px solid rgba(77,189,136,0.06)" : "none",
                       background: idx % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)"
                     }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ width: `${pickShare}%`, maxWidth: 60, minWidth: 4, height: 3, background: "rgba(77,189,136,0.4)", borderRadius: 2, flexShrink: 0 }} />
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4, minWidth: 140 }}>
                         <span style={{ color: isMissedCut ? "#6b7280" : "#f0faf4", fontSize: "0.85rem", fontStyle: isMissedCut ? "italic" : "normal" }}>
                           {g.name}
                           {g.topPickCount > 0 && <span style={{ color: "#facc15", fontSize: "0.65rem", marginLeft: 4 }}>⭐</span>}
                         </span>
+                        <div style={{ width: `${pickShare}%`, maxWidth: 60, minWidth: 4, height: 3, background: "rgba(77,189,136,0.4)", borderRadius: 2 }} />
                       </div>
                       <div style={{ textAlign: "center" }}>
                         <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.85rem", color: "#f0faf4", fontWeight: 600 }}>{g.totalPicks}</span>
@@ -230,8 +231,7 @@ export default function AnalysisPage() {
                 })}
               </div>
             </div>
-
-            {/* Footer note */}
+            </div>
             <p style={{ color: "var(--text-muted)", fontSize: "0.75rem", textAlign: "center", marginTop: 16 }}>
               "Counting" = in an entry's best 3 of 5 scores · "Differentiators" = picked by exactly 1 entry · Updates with leaderboard
             </p>
