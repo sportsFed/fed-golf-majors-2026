@@ -80,6 +80,11 @@ export default function AdminPage() {
   const [editSaving, setEditSaving] = useState(false);
   const [editMsg, setEditMsg] = useState("");
 
+  // Manual score state keyed by entryId
+  const [manualScoreInput, setManualScoreInput] = useState<Record<string, string>>({});
+  const [manualScoreSaving, setManualScoreSaving] = useState<Record<string, boolean>>({});
+  const [manualScoreMsg, setManualScoreMsg] = useState<Record<string, string>>({});
+
   useEffect(() => {
     if (!session) { router.push("/login"); return; }
     if (getAdminSession()) setAuthed(true);
@@ -175,16 +180,12 @@ export default function AdminPage() {
     setSnapshotting(false);
   }
 
-  // Bulk name match parser
-  // Format: one pair per line, tab or comma separated:
-  // YourFieldName [tab] ESPNName
-  // If only one name per line, it's used as both (identity mapping for auto-abbrev only)
   function parseBulkText() {
     const lines = bulkText.trim().split("\n").filter(l => l.trim());
     const parsed = lines.map(line => {
       const parts = line.split(/\t|,/).map(p => p.trim());
       const fieldName = parts[0] ?? "";
-      const espnName = parts[1] ?? fieldName; // default: same name
+      const espnName = parts[1] ?? fieldName;
       const displayAs = parts[2] ?? autoAbbrev(fieldName);
       return { fieldName, espnName, displayAs };
     }).filter(p => p.fieldName);
@@ -223,7 +224,7 @@ export default function AdminPage() {
 
   async function saveOverride() {
     if (!ovGolfer) return;
-    await fetch("/api/admin/overrides", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ majorId: activeMajor, golferName: ovGolfer, overrideStatus: ovStatus, customScore: ovStatus === "CUSTOM" ? parseFloat(ovScore) : undefined, setAt: new Date().toISOString() }) });
+    await fetch("/api/admin/overrides", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ majorId: activeMajor, golferName: ovGolfer, overrideStatus: ovStatus, customScore: ovScore ? parseInt(ovScore) : undefined }) });
     setOvGolfer(""); setOvScore(""); loadTabData();
   }
 
@@ -305,6 +306,36 @@ export default function AdminPage() {
     else setResetMsg({ ...resetMsg, [entryId]: "Error updating PIN." });
   }
 
+  async function saveManualScore(entryId: string) {
+    const raw = manualScoreInput[entryId];
+    if (raw === undefined || raw === "") return;
+    const score = Number(raw);
+    if (isNaN(score)) {
+      setManualScoreMsg({ ...manualScoreMsg, [entryId]: "Invalid number." });
+      return;
+    }
+    setManualScoreSaving({ ...manualScoreSaving, [entryId]: true });
+    setManualScoreMsg({ ...manualScoreMsg, [entryId]: "" });
+    try {
+      const res = await fetch("/api/admin/entries", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entryId, majorId: activeMajor, manualScore: score })
+      });
+      if (res.ok) {
+        setManualScoreMsg({ ...manualScoreMsg, [entryId]: "✓ Saved!" });
+        setManualScoreInput({ ...manualScoreInput, [entryId]: "" });
+        loadTabData();
+      } else {
+        setManualScoreMsg({ ...manualScoreMsg, [entryId]: "Error saving." });
+      }
+    } catch {
+      setManualScoreMsg({ ...manualScoreMsg, [entryId]: "Error saving." });
+    } finally {
+      setManualScoreSaving({ ...manualScoreSaving, [entryId]: false });
+    }
+  }
+
   const TABS: { id: AdminTab; label: string }[] = [
     { id: "field", label: "Field Import" },
     { id: "deadline", label: "Settings & Deadline" },
@@ -382,7 +413,7 @@ export default function AdminPage() {
             {parsedField.length > 0 && (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 6 }}>
                 {parsedField.map((g, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(17,45,28,0.5)", border: "1px solid var(--border)", borderRadius: 7, padding: "8px 12px" }}>
+                  <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(17,45,28,0.5)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 12px" }}>
                     <span style={{ color: "#f0faf4", fontSize: "0.83rem" }}>{g.displayName}</span>
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                       {g.odds && <span style={{ color: "var(--text-muted)", fontSize: "0.72rem", fontFamily: "'DM Mono', monospace" }}>+{g.odds}</span>}
@@ -411,7 +442,7 @@ export default function AdminPage() {
             </div>
             <div style={{ marginBottom: 20 }}>
               <label style={LBL}>Major Status</label>
-              <select className="input" value={majorStatus} onChange={e => setMajorStatus(e.target.value as Major["status"])}>
+              <select className="input" value={majorStatus} onChange={e => setMajorStatus(e.target.value as Major["status"]) }>
                 <option value="upcoming">Upcoming (picks not open)</option>
                 <option value="open">Open (picks accepted)</option>
                 <option value="locked">Locked (picks closed)</option>
@@ -472,7 +503,7 @@ export default function AdminPage() {
               {bulkParsed.length > 0 && (
                 <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 4 }}>
                   {bulkParsed.map((m, i) => (
-                    <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr 120px", gap: 12, alignItems: "center", background: "rgba(10,31,20,0.6)", borderRadius: 6, padding: "7px 12px", fontSize: "0.82rem" }}>
+                    <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr 120px", gap: 12, alignItems: "center", background: "rgba(10,31,20,0.6)", borderRadius: 6, padding: "7px 12px" }}>
                       <span style={{ color: "#f0faf4" }}>{m.fieldName}</span>
                       <span style={{ color: "var(--text-muted)" }}>→</span>
                       <span style={{ color: "var(--green-400)" }}>{m.espnName}</span>
@@ -516,10 +547,10 @@ export default function AdminPage() {
                     Saved Mappings ({mappings.length})
                   </div>
                   {mappings.map((m, i) => (
-                    <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr 120px auto", gap: 12, alignItems: "center", background: "rgba(17,45,28,0.5)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px" }}>
+                    <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr 120px auto", gap: 12, alignItems: "center", background: "rgba(17,45,28,0.5)", border: "1px solid var(--border)", borderRadius: 8, padding: "9px 14px" }}>
                       <span style={{ color: "#f0faf4", fontSize: "0.85rem" }}>{m.adminName}</span>
                       <span style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>→</span>
-                      <span style={{ color: "var(--green-400)", fontSize: "0.85rem" }}>{m.espnName}</span>
+                      <span style={{ color: "var(--green-400", fontSize: "0.85rem" }}>{m.espnName}</span>
                       <span style={{ color: "#facc15", fontSize: "0.82rem", fontFamily: "'DM Mono', monospace" }}>{(m as any).displayAs ?? autoAbbrev(m.adminName)}</span>
                       <button onClick={() => deleteMapping(m.adminName)} style={{ background: "none", border: "none", color: "#6b7280", cursor: "pointer", fontSize: "0.85rem" }}>Remove</button>
                     </div>
@@ -540,7 +571,7 @@ export default function AdminPage() {
           <div>
             <h2 style={{ color: "#f0faf4", fontSize: "1.1rem", marginBottom: 8 }}>Score Overrides — {MAJORS.find(m => m.id === activeMajor)?.name}</h2>
             <p style={{ color: "var(--text-muted)", fontSize: "0.82rem", marginBottom: 20 }}>Force CUT, WD, or a custom score. Overrides take priority over the live sheet.</p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 160px 140px auto", gap: 10, marginBottom: 20, alignItems: "end", flexWrap: "wrap" as any }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 160px 140px auto", gap: 10, marginBottom: 20, alignItems: "end", flexWrap: "wrap" }}>
               <div>
                 <label style={LBL}>Golfer Name (ESPN exact name)</label>
                 <input className="input" placeholder="Exact ESPN name" value={ovGolfer} onChange={e => setOvGolfer(e.target.value)} />
@@ -567,7 +598,7 @@ export default function AdminPage() {
                   {overrides.map((o, i) => (
                     <div key={i} style={{ display: "flex", alignItems: "center", gap: 16, background: "rgba(17,45,28,0.5)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px" }}>
                       <span style={{ color: "#f0faf4", fontSize: "0.88rem", flex: 1 }}>{o.golferName}</span>
-                      <span style={{ padding: "2px 10px", borderRadius: 20, fontSize: "0.75rem", fontFamily: "'DM Mono', monospace", background: o.overrideStatus === "CUT" ? "rgba(239,68,68,0.15)" : o.overrideStatus === "WD" ? "rgba(245,158,11,0.15)" : "rgba(77,189,136,0.15)", color: o.overrideStatus === "CUT" ? "#f87171" : o.overrideStatus === "WD" ? "#fbbf24" : "var(--green-400)" }}>
+                      <span style={{ padding: "2px 10px", borderRadius: 20, fontSize: "0.75rem", fontFamily: "'DM Mono', monospace", background: o.overrideStatus === "CUT" ? "rgba(239,68,68,0.15)" : o.overrideStatus === "WD" ? "rgba(156,163,175,0.15)" : "rgba(250,204,21,0.12)", color: o.overrideStatus === "CUT" ? "#f87171" : o.overrideStatus === "WD" ? "#9ca3af" : "#facc15" }}>
                         {o.overrideStatus}{o.overrideStatus === "CUSTOM" ? `: ${o.customScore}` : ""}
                       </span>
                       <span style={{ color: "var(--text-muted)", fontSize: "0.72rem" }}>{new Date(o.setAt).toLocaleString()}</span>
@@ -611,11 +642,48 @@ export default function AdminPage() {
                   {entries.map(e => {
                     const majorsPicked = Object.keys(e.majors ?? {});
                     const isPicksExpanded = expandedEntryPicks === e.id;
+                    const activeMajorEntry = e.majors?.[activeMajor];
+                    const hasPicksForActive = (activeMajorEntry?.picks ?? []).length > 0;
+                    const existingManualScore = activeMajorEntry?.manualScore;
                     return (
                       <div key={e.id} style={{ background: "rgba(17,45,28,0.5)", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
                         {/* Entry row */}
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 70px 110px auto auto", gap: 12, alignItems: "center", padding: "14px 18px" }}>
-                          <span style={{ color: "#f0faf4", fontWeight: 500, fontSize: "0.9rem" }}>{e.entrantName}</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
+                            <span style={{ color: "#f0faf4", fontWeight: 500, fontSize: "0.9rem" }}>{e.entrantName}</span>
+                            {/* Manual score inline input for entries with no picks for the active major */}
+                            {!hasPicksForActive && (
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                <span style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 4, color: "#f87171", fontSize: "0.65rem", padding: "1px 6px", fontFamily: "'DM Mono', monospace", whiteSpace: "nowrap" }}>
+                                  no picks
+                                </span>
+                                {existingManualScore !== undefined && (
+                                  <span style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 4, color: "#facc15", fontSize: "0.65rem", padding: "1px 6px", fontFamily: "'DM Mono', monospace", whiteSpace: "nowrap" }}>
+                                    manual: {existingManualScore > 0 ? "+" : ""}{existingManualScore}
+                                  </span>
+                                )}
+                                <input
+                                  type="number"
+                                  placeholder={existingManualScore !== undefined ? String(existingManualScore) : "score"}
+                                  value={manualScoreInput[e.id] ?? ""}
+                                  onChange={ev => setManualScoreInput({ ...manualScoreInput, [e.id]: ev.target.value })}
+                                  style={{ width: 70, background: "rgba(0,0,0,0.35)", border: "1px solid var(--border)", borderRadius: 5, color: "#f0faf4", fontSize: "0.78rem", padding: "3px 7px", fontFamily: "'DM Mono', monospace" }}
+                                />
+                                <button
+                                  onClick={() => saveManualScore(e.id)}
+                                  disabled={manualScoreSaving[e.id] || !manualScoreInput[e.id]}
+                                  style={{ background: "rgba(77,189,136,0.15)", border: "1px solid rgba(77,189,136,0.4)", borderRadius: 5, color: "var(--green-400)", fontSize: "0.75rem", padding: "3px 10px", cursor: "pointer", whiteSpace: "nowrap" }}
+                                >
+                                  {manualScoreSaving[e.id] ? "…" : "Save"}
+                                </button>
+                                {manualScoreMsg[e.id] && (
+                                  <span style={{ fontSize: "0.72rem", color: manualScoreMsg[e.id].includes("✓") ? "var(--green-400)" : "#f87171" }}>
+                                    {manualScoreMsg[e.id]}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
                           <span style={{ color: "var(--text-muted)", fontSize: "0.82rem" }}>{e.email}</span>
                           <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.85rem", color: "#facc15", background: "rgba(250,204,21,0.08)", padding: "2px 8px", borderRadius: 6, textAlign: "center" }}>
                             {e.pin ?? "—"}
@@ -626,12 +694,14 @@ export default function AdminPage() {
                           {/* View picks toggle */}
                           <button
                             onClick={() => setExpandedEntryPicks(isPicksExpanded ? null : e.id)}
-                            style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-muted)", cursor: "pointer", fontSize: "0.78rem", padding: "4px 10px", fontFamily: "'DM Sans', sans-serif" }}>
+                            style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-muted)", cursor: "pointer", fontSize: "0.78rem", padding: "4px 10px" }}
+                          >
                             {isPicksExpanded ? "Hide Picks" : "View Picks"}
                           </button>
                           <button
                             onClick={() => { setResetEntryId(resetEntryId === e.id ? null : e.id); setNewPin(""); }}
-                            style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-muted)", cursor: "pointer", fontSize: "0.78rem", padding: "4px 10px", fontFamily: "'DM Sans', sans-serif" }}>
+                            style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-muted)", cursor: "pointer", fontSize: "0.78rem", padding: "4px 10px" }}
+                          >
                             Reset PIN
                           </button>
                         </div>
@@ -646,15 +716,23 @@ export default function AdminPage() {
                                   return (
                                     <div key={m.id} style={{ marginBottom: 12 }}>
                                       <div style={{ color: "var(--text-muted)", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, fontWeight: 600 }}>{m.name}</div>
-                                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                                        {(mp.picks ?? []).map((p: any, i: number) => (
-                                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, background: i === 0 ? "rgba(250,204,21,0.08)" : "rgba(17,45,28,0.8)", border: `1px solid ${i === 0 ? "rgba(250,204,21,0.3)" : "var(--border)"}`, borderRadius: 6, padding: "4px 10px" }}>
-                                            {i === 0 && <span style={{ color: "#facc15", fontSize: "0.65rem" }}>⭐</span>}
-                                            <span style={{ color: "#f0faf4", fontSize: "0.8rem" }}>{p.golferName}</span>
-                                            <span className={`tier-badge tier-${p.tier}`} style={{ fontSize: "0.62rem" }}>{p.tier}</span>
-                                          </div>
-                                        ))}
-                                      </div>
+                                      {mp.manualScore !== undefined && !(mp.picks ?? []).length ? (
+                                        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(250,204,21,0.08)", border: "1px solid rgba(250,204,21,0.25)", borderRadius: 6, padding: "4px 10px" }}>
+                                          <span style={{ color: "#facc15", fontSize: "0.75rem", fontFamily: "'DM Mono', monospace" }}>
+                                            Manual score: {mp.manualScore > 0 ? "+" : ""}{mp.manualScore}
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                          {(mp.picks ?? []).map((p: any, i: number) => (
+                                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, background: i === 0 ? "rgba(250,204,21,0.08)" : "rgba(17,45,28,0.8)", border: `1px solid ${i === 0 ? "rgba(250,204,21,0.3)" : "var(--border)"}`, borderRadius: 6, padding: "4px 8px" }}>
+                                              {i === 0 && <span style={{ color: "#facc15", fontSize: "0.65rem" }}>⭐</span>}
+                                              <span style={{ color: "#f0faf4", fontSize: "0.8rem" }}>{p.golferName}</span>
+                                              <span className={`tier-badge tier-${p.tier}`} style={{ fontSize: "0.62rem" }}>{p.tier}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
                                     </div>
                                   );
                                 })
