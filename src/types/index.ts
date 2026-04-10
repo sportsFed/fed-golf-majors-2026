@@ -87,6 +87,7 @@ export interface MajorEntry {
   picks: Pick[];         // always 5, picks[0] is Top Pick
   submittedAt: string;
   locked: boolean;
+  manualScore?: number;
 }
 
 export interface Entry {
