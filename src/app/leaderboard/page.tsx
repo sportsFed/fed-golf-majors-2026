@@ -16,8 +16,7 @@ const ALL_MAJORS: { id: MajorId; name: string; short: string }[] = [
 function abbrevName(name: string): string {
   const parts = name.trim().split(" ");
   if (parts.length < 2) return name;
-  return \
-  `${parts[0][0]}. ${parts.slice(1).join(" ")}`;
+  return parts[0][0] + ". " + parts.slice(1).join(" ");
 }
 
 function formatDeadline(iso: string | undefined): string {
