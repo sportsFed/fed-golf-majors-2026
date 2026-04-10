@@ -7,6 +7,10 @@ import type { Entry, MajorId, AdminOverride, NameMapping, Major, MajorScore } fr
 const lastSnapshot: Record<string, number> = {};
 const SNAPSHOT_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 
+let cachedResult: any = null;
+let cacheTimestamp = 0;
+const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
+
 async function maybeSnapshot(majorId: string, liveScores: ReturnType<typeof parseEspnCsv>, entries: Entry[], overrides: AdminOverride[], nameMappings: Record<string, string>) {
   const now = Date.now();
   if (lastSnapshot[majorId] && now - lastSnapshot[majorId] < SNAPSHOT_INTERVAL_MS) return;
@@ -39,6 +43,11 @@ async function maybeSnapshot(majorId: string, liveScores: ReturnType<typeof pars
 }
 
 export async function GET() {
+  const now = Date.now();
+  if (cachedResult && now - cacheTimestamp < CACHE_TTL_MS) {
+    return NextResponse.json(cachedResult);
+  }
+
   try {
     const [entriesSnap, majorsSnap] = await Promise.all([
       adminDb.collection("entries").get(),
@@ -48,6 +57,24 @@ export async function GET() {
     const majors = majorsSnap.docs.map(d => d.data() as Major);
     const majorScores: Record<string, Partial<Record<MajorId, MajorScore>>> = {};
     entries.forEach(e => { majorScores[e.id] = {}; });
+
+    // Determine the active (live) major upfront so we can fetch overrides/nameMappings once
+    const activeMajor = majors.find(m => m.status !== "upcoming" && m.status !== "open" && m.status !== "finalized") ?? null;
+
+    const [activeOverrides, activeMappingsSnap] = activeMajor
+      ? await Promise.all([
+          adminDb.collection("overrides").where("majorId", "==", activeMajor.id).get(),
+          adminDb.collection("nameMappings").where("majorId", "==", activeMajor.id).get()
+        ])
+      : [null, null];
+
+    const preloadedOverrides: AdminOverride[] = activeOverrides ? activeOverrides.docs.map(d => d.data() as AdminOverride) : [];
+    const preloadedNameMappings: Record<string, string> = {};
+    if (activeMappingsSnap) {
+      activeMappingsSnap.docs.map(d => d.data() as NameMapping).forEach(m => {
+        preloadedNameMappings[normalizeName(m.adminName)] = m.espnName;
+      });
+    }
 
     for (const major of majors) {
       if (major.status === "upcoming" || major.status === "open") continue;
@@ -69,15 +96,23 @@ export async function GET() {
         } catch {}
       }
 
-      const [overridesSnap, mappingsSnap] = await Promise.all([
-        adminDb.collection("overrides").where("majorId", "==", major.id).get(),
-        adminDb.collection("nameMappings").where("majorId", "==", major.id).get()
-      ]);
-      const overrides = overridesSnap.docs.map(d => d.data() as AdminOverride);
-      const nameMappings: Record<string, string> = {};
-      mappingsSnap.docs.map(d => d.data() as NameMapping).forEach(m => {
-        nameMappings[normalizeName(m.adminName)] = m.espnName;
-      });
+      // Use preloaded overrides/nameMappings for the active major; fall back to a fresh fetch for any other live major
+      let overrides: AdminOverride[];
+      let nameMappings: Record<string, string>;
+      if (activeMajor && major.id === activeMajor.id) {
+        overrides = preloadedOverrides;
+        nameMappings = preloadedNameMappings;
+      } else {
+        const [overridesSnap, mappingsSnap] = await Promise.all([
+          adminDb.collection("overrides").where("majorId", "==", major.id).get(),
+          adminDb.collection("nameMappings").where("majorId", "==", major.id).get()
+        ]);
+        overrides = overridesSnap.docs.map(d => d.data() as AdminOverride);
+        nameMappings = {};
+        mappingsSnap.docs.map(d => d.data() as NameMapping).forEach(m => {
+          nameMappings[normalizeName(m.adminName)] = m.espnName;
+        });
+      }
 
       for (const entry of entries) {
         const majorEntry = entry.majors?.[major.id as MajorId];
@@ -94,9 +129,17 @@ export async function GET() {
     }
 
     const standings = calculateStandings(entries, majorScores);
+
+    cachedResult = { standings };
+    cacheTimestamp = Date.now();
+
     return NextResponse.json({ standings });
-  } catch (e) {
+  } catch (e: any) {
     console.error(e);
+    if (cachedResult) {
+      console.log("Returning cached result due to error");
+      return NextResponse.json(cachedResult);
+    }
     return NextResponse.json({ standings: [] });
   }
 }
