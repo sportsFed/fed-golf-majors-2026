@@ -316,7 +316,7 @@ export default function LeaderboardPage() {
           <div style={{ background: "rgba(17,45,28,0.5)", border: "1px solid var(--border)", borderRadius: 8, padding: "9px 16px", marginBottom: 14, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
             <span style={{ color: "var(--text-muted)", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600 }}>Key</span>
             <span style={{ color: "var(--text-secondary)", fontSize: "0.76rem" }}>Lower = better · Best 3-of-5 count</span>
-            <span style={{ color: "#facc15", fontSize: "0.76rem" }}>🏆 = winner in your picks · ⭐ = top pick leading · Tap row for picks</span>
+            <span style={{ color: "#facc15", fontSize: "0.76rem" }}>🏆 = top 3 includes leader · ⭐ = top pick leading · Tap row for picks</span>
           </div>
         )}
 
@@ -372,8 +372,7 @@ export default function LeaderboardPage() {
                           {ms
                             ? <span style={{ color: scoreColor(ms.finalScore), fontWeight: 700 }}>
                                 {formatScore(ms.finalScore)}
-                                {ms.winnersHit > 0 ? " 🏆" : ""}
-                                {ms.topPickWon ? " ⭐" : ""}
+                                {ms.topPickWon ? " ⭐" : ms.winnersHit > 0 ? " 🏆" : ""}
                               </span>
                             : <span style={{ color: "var(--border)" }}>--</span>}
                         </span>
