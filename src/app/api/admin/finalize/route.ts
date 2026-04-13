@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
         entryId: entry.id, 
         majorId,
         ...msRest,
-        bonusReason: msRest.bonusReason ?? null,
+        bonusReason: msRest.bonusReason ?? undefined,
         finalizedAt: new Date().toISOString() 
       });
       count++;
