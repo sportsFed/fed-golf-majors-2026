@@ -43,15 +43,22 @@ export async function POST(req: NextRequest) {
 
       const scoreRef = adminDb.collection("finalizedScores").doc(`${entry.id}_${majorId}`);
       const { majorId: _mid, ...msRest } = ms;
-      batch.set(scoreRef, { 
-        entryId: entry.id, 
-        majorId,
-        ...msRest,
-        bonusReason: msRest.bonusReason ?? undefined,
-        finalizedAt: new Date().toISOString() 
-      });
-      count++;
-    }
+      const scoreData = {
+        entryId: entry.id,
+        majorId: majorId,
+        pickResults: ms.pickResults,
+        countedScore: ms.countedScore,
+        bonus: ms.bonus,
+        bonusReason: ms.bonusReason !== undefined ? ms.bonusReason : null,
+        finalScore: ms.finalScore,
+        winnersHit: ms.winnersHit,
+        topPickWon: ms.topPickWon,
+        finalized: true,
+        finalizedAt: new Date().toISOString()
+      };
+      batch.set(scoreRef, scoreData);
+            count++;
+          }
 
     // Mark major as finalized
     batch.set(adminDb.collection("majors").doc(majorId), { status: "finalized" }, { merge: true });
