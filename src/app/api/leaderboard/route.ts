@@ -80,12 +80,17 @@ export async function GET() {
       if (major.status === "upcoming" || major.status === "open") continue;
 
       if (major.status === "finalized") {
-        const finalSnap = await adminDb.collection("finalizedScores").where("majorId", "==", major.id).get();
-        finalSnap.docs.forEach(d => {
-          const data = d.data();
-          if (majorScores[data.entryId]) majorScores[data.entryId][major.id as MajorId] = data as MajorScore;
-        });
-        continue;
+        const finalSnap = await adminDb.collection("finalizedScores")
+          .where("majorId", "==", major.id).get();
+        if (!finalSnap.empty) {
+          finalSnap.docs.forEach(d => {
+            const data = d.data();
+            if (majorScores[data.entryId])
+              majorScores[data.entryId][major.id as MajorId] = data as MajorScore;
+          });
+          continue;
+        }
+        // No snapshots yet — fall through to live calculation
       }
 
       let liveScores: ReturnType<typeof parseEspnCsv> = [];
