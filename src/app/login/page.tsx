@@ -56,8 +56,8 @@ export default function LoginPage() {
         <div style={{ textAlign: "center", marginBottom: 36 }}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
             <Image
-              src="/federation-logo.png"
-              alt="Federation Golf Majors"
+              src="/pga-fed-logo.png"
+              alt="Fed Golf Majors - PGA Championship"
               width={100}
               height={100}
               style={{ objectFit: "contain" }}
@@ -67,7 +67,7 @@ export default function LoginPage() {
             Fed Golf Majors
           </h1>
           <p style={{ color: "var(--text-muted)", fontSize: "0.88rem", fontFamily: "'DM Mono', monospace" }}>
-            2026 Season · Masters · PGA · US Open · British Open
+            2026 Season · PGA Championship · Quail Hollow Club
           </p>
         </div>
 

@@ -5,17 +5,17 @@
 @tailwind utilities;
 
 :root {
-  --fairway-dark: #0a1f14;
-  --fairway-mid: #112d1c;
-  --fairway-light: #1a4229;
-  --green-400: #4dbd88;
-  --green-500: #28a06a;
-  --gold-400: #facc15;
+  --fairway-dark: #0a0f1e;
+  --fairway-mid: #0f1a35;
+  --fairway-light: #1a2a52;
+  --green-400: #c9a84c;
+  --green-500: #b8922e;
+  --gold-400: #ffffff;
   --gold-500: #eab308;
-  --text-primary: #f0faf4;
-  --text-secondary: #86d8b0;
-  --text-muted: #4dbd88;
-  --border: rgba(77, 189, 136, 0.2);
+  --text-primary: #f5f0e8;
+  --text-secondary: #d4b896;
+  --text-muted: #c9a84c;
+  --border: rgba(201,168,76,0.25);
 }
 
 * { box-sizing: border-box; }
@@ -50,19 +50,19 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; }
   font-size: 0.7rem; font-family: 'DM Mono', monospace;
   font-weight: 500; letter-spacing: 0.05em;
 }
-.tier-even-999  { background: rgba(250,204,21,0.15); color: #facc15; border: 1px solid rgba(250,204,21,0.3); }
-.tier-1000-2499 { background: rgba(134,211,176,0.15); color: #86d8b0; border: 1px solid rgba(134,211,176,0.3); }
-.tier-2500-4999 { background: rgba(77,189,136,0.15); color: #4dbd88; border: 1px solid rgba(77,189,136,0.3); }
-.tier-5000plus  { background: rgba(40,160,106,0.15); color: #28a06a; border: 1px solid rgba(40,160,106,0.3); }
-.tier-field     { background: rgba(255,255,255,0.08); color: #9ca3af; border: 1px solid rgba(255,255,255,0.15); }
+.tier-even-999  { background: rgba(201,168,76,0.15); color: #c9a84c; border: 1px solid rgba(201,168,76,0.3); }
+.tier-1000-2499 { background: rgba(201,168,76,0.12); color: #b8922e; border: 1px solid rgba(201,168,76,0.25); }
+.tier-2500-4999 { background: rgba(201,168,76,0.1); color: #a07820; border: 1px solid rgba(201,168,76,0.2); }
+.tier-5000plus  { background: rgba(255,255,255,0.08); color: #d4b896; border: 1px solid rgba(255,255,255,0.15); }
+.tier-field     { background: rgba(255,255,255,0.05); color: #8899aa; border: 1px solid rgba(255,255,255,0.1); }
 
-.score-under { color: #f87171; }
+.score-under { color: #e85555; }
 .score-even  { color: #f0faf4; }
 .score-over  { color: #6b7280; }
 
 .btn-primary {
-  background: linear-gradient(135deg, #28a06a, #1a8255);
-  color: white; border: none; border-radius: 8px;
+  background: linear-gradient(135deg, #c9a84c, #b8922e);
+  color: #0a0f1e; border: none; border-radius: 8px;
   padding: 10px 20px; font-family: 'DM Sans', sans-serif;
   font-weight: 500; cursor: pointer; transition: all 0.15s;
 }
