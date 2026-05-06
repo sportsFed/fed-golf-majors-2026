@@ -36,8 +36,6 @@ export default function LoginPage() {
     if (pin.length !== 4 || !/^\d{4}$/.test(pin)) { setError("PIN must be exactly 4 digits."); return; }
     setLoading(true);
     try {
-      const existing = await getEntryByEmail(email.trim().toLowerCase());
-      if (existing) { setError("An account already exists for that email. Please log in."); return; }
       const res = await fetch("/api/auth/register", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim().toLowerCase(), name: name.trim(), pin })
