@@ -90,7 +90,7 @@ export async function GET() {
           });
           continue;
         }
-        // No snapshots yet — fall through to live calculation
+        // No snapshots — fall through to live calculation as safety net
       }
 
       let liveScores: ReturnType<typeof parseEspnCsv> = [];

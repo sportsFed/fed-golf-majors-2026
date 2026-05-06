@@ -42,11 +42,17 @@ export async function POST(req: NextRequest) {
       ms.majorId = majorId as MajorId;
 
       const scoreRef = adminDb.collection("finalizedScores").doc(`${entry.id}_${majorId}`);
-      const { majorId: _mid, ...msRest } = ms;
-      const scoreData = {
+      const scoreData: Record<string, any> = {
         entryId: entry.id,
         majorId: majorId,
-        pickResults: ms.pickResults,
+        majorId_str: String(majorId),
+        pickResults: ms.pickResults.map(pr => ({
+          pick: pr.pick,
+          score: pr.score,
+          counted: pr.counted,
+          rawScore: pr.rawScore,
+          status: pr.status
+        })),
         countedScore: ms.countedScore,
         bonus: ms.bonus,
         bonusReason: ms.bonusReason !== undefined ? ms.bonusReason : null,
@@ -56,6 +62,12 @@ export async function POST(req: NextRequest) {
         finalized: true,
         finalizedAt: new Date().toISOString()
       };
+
+      // Remove any undefined values before writing to Firestore
+      Object.keys(scoreData).forEach(key => {
+        if (scoreData[key] === undefined) scoreData[key] = null;
+      });
+
       batch.set(scoreRef, scoreData);
             count++;
           }
