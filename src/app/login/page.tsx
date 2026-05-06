@@ -2,8 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { setSession, verifyPin } from "@/lib/auth";
-import { getEntryByEmail } from "@/lib/db";
+import { setSession } from "@/lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,10 +17,14 @@ export default function LoginPage() {
   async function handleLogin() {
     setError(""); setLoading(true);
     try {
-      const entry = await getEntryByEmail(email.trim().toLowerCase());
-      if (!entry) { setError("No account found with that email. Try registering."); return; }
-      if (!verifyPin(pin, entry.pinHash)) { setError("Incorrect PIN."); return; }
-      setSession({ entryId: entry.id, entrantName: entry.entrantName, email: entry.email }, remember);
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), pin })
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Login failed."); return; }
+      setSession({ entryId: data.entryId, entrantName: data.entrantName, email: data.email }, remember);
       router.push("/leaderboard");
     } catch { setError("Something went wrong. Please try again."); }
     finally { setLoading(false); }
