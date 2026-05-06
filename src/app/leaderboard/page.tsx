@@ -122,7 +122,7 @@ export default function LeaderboardPage() {
   }
 
   const gridCols = tournamentStarted
-    ? `36px 1fr ${visibleMajors.map(() => "64px").join(" ")} 72px 36px`
+    ? "36px 1fr 72px 72px 72px 48px"
     : "44px 1fr 160px";
 
   const deadlineFormatted = formatDeadline(masterDeadline);
@@ -336,8 +336,9 @@ export default function LeaderboardPage() {
             <div style={{ display: "grid", gridTemplateColumns: gridCols, padding: "5px 10px", color: "var(--text-muted)", fontSize: "0.62rem", fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               <span>#</span>
               <span>Entrant</span>
-              {visibleMajors.map(m => <span key={m.id} style={{ textAlign: "center" }}>{m.short}</span>)}
-              <span style={{ textAlign: "center" }}>Score</span>
+              <span style={{ textAlign: "center" }}>PGA</span>
+              <span style={{ textAlign: "center" }}>Season</span>
+              <span style={{ textAlign: "center" }}>TP</span>
               <span style={{ textAlign: "center" }}>W</span>
             </div>
 
@@ -345,6 +346,8 @@ export default function LeaderboardPage() {
               const isMe = entry.entryId === session?.entryId;
               const isExpanded = expandedEntry === entry.entryId;
               const score = getScore(entry);
+              const latestMajor = visibleMajors[visibleMajors.length - 1];
+              const latestMs = latestMajor ? entry.majorScores[latestMajor.id] : null;
 
               return (
                 <div key={entry.entryId} className="leaderboard-row" style={{ animationDelay: `${idx * 0.02}s` }}>
@@ -365,23 +368,21 @@ export default function LeaderboardPage() {
                       {entry.entrantName}
                       {isMe && <span style={{ fontSize: "0.58rem", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>(you)</span>}
                     </span>
-                    {visibleMajors.map(m => {
-                      const ms = entry.majorScores[m.id];
-                      return (
-                        <span key={m.id} style={{ textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: "0.72rem" }}>
-                          {ms
-                            ? <span style={{ color: scoreColor(ms.finalScore), fontWeight: 700 }}>
-                                {formatScore(ms.finalScore)}
-                                {ms.topPickWon ? " ⭐" : ms.winnersHit > 0 ? " 🏆" : ""}
-                              </span>
-                            : <span style={{ color: "var(--border)" }}>--</span>}
-                        </span>
-                      );
-                    })}
-                    <span style={{ textAlign: "center", fontFamily: "'DM Mono', monospace", fontWeight: 700, fontSize: "0.78rem", color: scoreColor(score) }}>
-                      {score !== null ? formatScore(score) : "--"}
+                    <span style={{ textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: "0.72rem" }}>
+                      {latestMs
+                        ? <span style={{ color: scoreColor(latestMs.finalScore), fontWeight: 700 }}>
+                            {formatScore(latestMs.finalScore)}
+                            {latestMs.topPickWon ? " ⭐" : latestMs.winnersHit > 0 ? " 🏆" : ""}
+                          </span>
+                        : <span style={{ color: "var(--border)" }}>--</span>}
                     </span>
-                    <span style={{ textAlign: "center", color: entry.totalWinnersHit > 0 ? "#facc15" : "var(--border)", fontFamily: "'DM Mono', monospace", fontSize: "0.72rem" }}>
+                    <span style={{ textAlign: "center", fontFamily: "'DM Mono', monospace", fontWeight: 700, fontSize: "0.78rem", color: scoreColor(entry.totalScore) }}>
+                      {entry.totalScore !== null ? formatScore(entry.totalScore) : "--"}
+                    </span>
+                    <span style={{ textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", color: entry.totalTopPickWins > 0 ? "#c9a84c" : "var(--border)" }}>
+                      {entry.totalTopPickWins > 0 ? entry.totalTopPickWins : "--"}
+                    </span>
+                    <span style={{ textAlign: "center", color: entry.totalWinnersHit > 0 ? "#c9a84c" : "var(--border)", fontFamily: "'DM Mono', monospace", fontSize: "0.72rem" }}>
                       {entry.totalWinnersHit > 0 ? entry.totalWinnersHit : "--"}
                     </span>
                   </div>
@@ -389,22 +390,27 @@ export default function LeaderboardPage() {
                   {/* Expanded picks */}
                   {isExpanded && (
                     <div style={{ background: "rgba(10,31,20,0.95)", border: "1px solid var(--border)", borderTop: "none", borderRadius: "0 0 10px 10px", padding: "14px 18px" }}>
-                      {visibleMajors.map(m => {
+                      {[...visibleMajors].reverse().map((m, i) => {
                         const ms = entry.majorScores[m.id];
                         if (!ms) return null;
                         const sortedPicks = [...ms.pickResults].sort((a, b) => a.score - b.score);
                         const counting = sortedPicks.slice(0, 3);
                         const notCounting = sortedPicks.slice(3);
+                        const winnerPick = ms.pickResults.find((pr: any) => pr.status === "winner");
                         return (
-                          <div key={m.id} style={{ marginBottom: 10 }}>
-                            {visibleMajors.length > 1 && (
-                              <div style={{ color: "var(--text-muted)", fontSize: "0.68rem", fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
-                                {m.name}{ms.bonus !== 0 && <span style={{ color: "#facc15", marginLeft: 8 }}>{ms.bonusReason}</span>}
-                              </div>
-                            )}
+                          <div key={m.id}>
+                            <div style={{
+                              color: "var(--text-muted)", fontSize: "0.65rem",
+                              textTransform: "uppercase", letterSpacing: "0.1em",
+                              fontWeight: 700, marginBottom: 8, marginTop: i > 0 ? 14 : 0,
+                              paddingTop: i > 0 ? 14 : 0,
+                              borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none"
+                            }}>
+                              {m.name}
+                            </div>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
-                              {counting.map((pr, i) => (
-                                <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(77,189,136,0.1)", border: "1px solid rgba(77,189,136,0.25)", borderRadius: 6, padding: "3px 7px" }}>
+                              {counting.map((pr, j) => (
+                                <div key={j} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(77,189,136,0.1)", border: "1px solid rgba(77,189,136,0.25)", borderRadius: 6, padding: "3px 7px" }}>
                                   {pr.pick.isTopPick && <span style={{ color: "#facc15", fontSize: "0.62rem" }}>⭐</span>}
                                   <span style={{ color: "#f0faf4", fontSize: "0.78rem" }}>{abbrevName(pr.pick.golferName)}</span>
                                   <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", color: scoreColor(pr.score) }}>
@@ -414,8 +420,8 @@ export default function LeaderboardPage() {
                                 </div>
                               ))}
                               <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.15)", margin: "0 2px" }} />
-                              {notCounting.map((pr, i) => (
-                                <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(0,0,0,0.15)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, padding: "3px 7px", opacity: 0.5 }}>
+                              {notCounting.map((pr, j) => (
+                                <div key={j} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(0,0,0,0.15)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, padding: "3px 7px", opacity: 0.5 }}>
                                   {pr.pick.isTopPick && <span style={{ color: "#facc15", fontSize: "0.62rem" }}>*</span>}
                                   <span style={{ color: "#f0faf4", fontSize: "0.78rem", fontStyle: "italic" }}>{abbrevName(pr.pick.golferName)}</span>
                                   <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", color: "#6b7280", fontStyle: "italic" }}>
@@ -425,7 +431,13 @@ export default function LeaderboardPage() {
                               ))}
                             </div>
                             {ms.bonus !== 0 && (
-                              <div style={{ color: "#facc15", fontSize: "0.72rem", marginTop: 5 }}>{ms.bonusReason}</div>
+                              winnerPick
+                                ? <div style={{ color: "#c9a84c", fontSize: "0.72rem", marginTop: 5 }}>
+                                    {winnerPick.pick.golferName}
+                                    {winnerPick.pick.isTopPick ? " (Top Pick)" : ""}
+                                    {" "}{ms.bonus} strokes
+                                  </div>
+                                : <div style={{ color: "#c9a84c", fontSize: "0.72rem", marginTop: 5 }}>{ms.bonusReason}</div>
                             )}
                           </div>
                         );
