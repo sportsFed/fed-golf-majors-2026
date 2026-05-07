@@ -56,7 +56,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; }
 .tier-5000plus  { background: rgba(255,255,255,0.08); color: #d4b896; border: 1px solid rgba(255,255,255,0.15); }
 .tier-field     { background: rgba(255,255,255,0.05); color: #8899aa; border: 1px solid rgba(255,255,255,0.1); }
 
-.score-under { color: #e85555; }
+.score-under { color: #e8c96a; }
 .score-even  { color: #f0faf4; }
 .score-over  { color: #6b7280; }
 

@@ -116,8 +116,8 @@ export default function LeaderboardPage() {
 
   function scoreColor(score: number | null): string {
     if (score === null) return "var(--border)";
-    if (score < 0) return "#f87171";
-    if (score === 0) return "#f0faf4";
+    if (score < 0) return "#e8c96a";
+    if (score === 0) return "#f5f0e8";
     return "#6b7280";
   }
 
@@ -224,7 +224,7 @@ export default function LeaderboardPage() {
           {counting.map((pr, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: i < 2 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ color: "var(--green-400)", fontSize: "0.68rem", fontFamily: "'DM Mono', monospace", width: 18 }}>#{i+1}</span>
+                <span style={{ color: "#c9a84c", fontSize: "0.68rem", fontFamily: "'DM Mono', monospace", width: 18 }}>#{i+1}</span>
                 {pr.pick.isTopPick && <span style={{ fontSize: "0.7rem" }}>⭐</span>}
                 <span style={{ color: "#f0faf4", fontSize: "0.88rem", fontWeight: 500 }}>{pr.pick.golferName}</span>
                 {pr.status === "winner" && <span style={{ fontSize: "0.72rem" }}>🏆</span>}
@@ -356,8 +356,8 @@ export default function LeaderboardPage() {
                     style={{
                       display: "grid", gridTemplateColumns: gridCols,
                       padding: "7px 10px", minHeight: 40, alignItems: "center", cursor: "pointer",
-                      background: isMe ? "rgba(77,189,136,0.08)" : "rgba(17,45,28,0.5)",
-                      border: `1px solid ${isMe ? "rgba(77,189,136,0.3)" : "var(--border)"}`,
+                      background: isMe ? "rgba(201,168,76,0.08)" : "rgba(17,45,28,0.5)",
+                      border: `1px solid ${isMe ? "rgba(201,168,76,0.3)" : "var(--border)"}`,
                       borderRadius: isExpanded ? "10px 10px 0 0" : 10
                     }}
                   >
@@ -410,7 +410,7 @@ export default function LeaderboardPage() {
                             </div>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
                               {counting.map((pr, j) => (
-                                <div key={j} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(77,189,136,0.1)", border: "1px solid rgba(77,189,136,0.25)", borderRadius: 6, padding: "3px 7px" }}>
+                                <div key={j} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 6, padding: "3px 7px" }}>
                                   {pr.pick.isTopPick && <span style={{ color: "#facc15", fontSize: "0.62rem" }}>⭐</span>}
                                   <span style={{ color: "#f0faf4", fontSize: "0.78rem" }}>{abbrevName(pr.pick.golferName)}</span>
                                   <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", color: scoreColor(pr.score) }}>
@@ -466,7 +466,7 @@ export default function LeaderboardPage() {
               const isMe = entry.entryId === session?.entryId;
               const hasPicks = isMe ? myPicksSubmitted : entry.completedMajors > 0;
               return (
-                <div key={entry.entryId} className="leaderboard-row" style={{ animationDelay: `${idx * 0.02}s`, display: "grid", gridTemplateColumns: gridCols, padding: "11px 16px", alignItems: "center", background: isMe ? "rgba(77,189,136,0.08)" : "rgba(17,45,28,0.5)", border: `1px solid ${isMe ? "rgba(77,189,136,0.3)" : "var(--border)"}`, borderRadius: 10 }}>
+                <div key={entry.entryId} className="leaderboard-row" style={{ animationDelay: `${idx * 0.02}s`, display: "grid", gridTemplateColumns: gridCols, padding: "11px 16px", alignItems: "center", background: isMe ? "rgba(201,168,76,0.08)" : "rgba(17,45,28,0.5)", border: `1px solid ${isMe ? "rgba(201,168,76,0.3)" : "var(--border)"}`, borderRadius: 10 }}>
                   <span style={{ fontFamily: "'DM Mono', monospace", color: "var(--text-muted)", fontSize: "0.88rem" }}>{idx + 1}</span>
                   <span style={{ color: isMe ? "var(--green-400)" : "#f0faf4", fontSize: "0.9rem", fontWeight: isMe ? 600 : 400, display: "flex", alignItems: "center", gap: 5 }}>
                     {entry.entrantName}

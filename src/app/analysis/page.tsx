@@ -42,7 +42,7 @@ function StatCard({ label, value, sub, color }: { label: string; value: string |
   return (
     <div style={{ background: "rgba(17,45,28,0.6)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px 20px" }}>
       <div style={{ color: "var(--text-muted)", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: 6 }}>{label}</div>
-      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "1.5rem", fontWeight: 700, color: color ?? "var(--green-400)" }}>{value}</div>
+      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "1.5rem", fontWeight: 700, color: color ?? "var(--text-muted)" }}>{value}</div>
       {sub && <div style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginTop: 4 }}>{sub}</div>}
     </div>
   );
@@ -95,9 +95,9 @@ export default function AnalysisPage() {
             {["masters","pga","us-open","british-open"].map(mid => (
               <button key={mid} onClick={() => setMajorId(mid)} style={{
                 padding: "6px 14px", borderRadius: 20, fontSize: "0.8rem", cursor: "pointer",
-                border: `1px solid ${majorId===mid?"var(--green-400)":"var(--border)"}`,
+                border: `1px solid ${majorId===mid?"var(--text-muted)":"var(--border)"}`,
                 background: majorId===mid?"rgba(77,189,136,0.12)":"transparent",
-                color: majorId===mid?"var(--green-400)":"var(--text-muted)",
+                color: majorId===mid?"var(--text-muted)":"var(--text-muted)",
                 fontFamily: "'DM Sans', sans-serif", fontWeight: majorId===mid?600:400
               }}>
                 {mid==="masters"?"Masters":mid==="pga"?"PGA":mid==="us-open"?"US Open":"British"}
@@ -121,7 +121,7 @@ export default function AnalysisPage() {
               <StatCard label="Unique Golfers" value={data.uniqueGolfers} sub="selected across pool" />
               <StatCard label="Differentiators" value={data.differentiatorCount} sub="picked by only 1 entry" color="#facc15" />
               {tournamentActive && <>
-                <StatCard label="Cut Rate" value={`${data.cutPickRate}%`} sub={`${data.cutPickCount} picks missed cut`} color={data.cutPickRate > 30 ? "#f87171" : "var(--green-400)"} />
+                <StatCard label="Cut Rate" value={`${data.cutPickRate}%`} sub={`${data.cutPickCount} picks missed cut`} color={data.cutPickRate > 30 ? "#f87171" : "var(--text-muted)"} />
                 <StatCard label="Consensus Score" value={formatScore(data.consensusScore)} sub="top 5 most-picked, best 3" color={data.consensusScore < 0 ? "#f87171" : "#6b7280"} />
               </>}
             </div>
@@ -129,7 +129,7 @@ export default function AnalysisPage() {
             {/* Highlight cards */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12, marginBottom: 28 }}>
               {[
-                { label: "Most Picked", g: data.mostPicked, color: "var(--green-400)" },
+                { label: "Most Picked", g: data.mostPicked, color: "var(--text-muted)" },
                 { label: "Most Top Picked ⭐", g: data.mostTopPicked, color: "#facc15" },
                 { label: "Most Counting 📊", g: data.mostCounting, color: "#86d8b0" }
               ].map(({ label, g, color }) => g && (
@@ -165,9 +165,9 @@ export default function AnalysisPage() {
                   ].map(opt => (
                     <button key={opt.key} onClick={() => setSortBy(opt.key)} style={{
                       padding: "4px 10px", borderRadius: 12, fontSize: "0.72rem", cursor: "pointer",
-                      border: `1px solid ${sortBy===opt.key?"var(--green-400)":"var(--border)"}`,
+                      border: `1px solid ${sortBy===opt.key?"var(--text-muted)":"var(--border)"}`,
                       background: sortBy===opt.key?"rgba(77,189,136,0.12)":"transparent",
-                      color: sortBy===opt.key?"var(--green-400)":"var(--text-muted)",
+                      color: sortBy===opt.key?"var(--text-muted)":"var(--text-muted)",
                       fontFamily: "'DM Sans', sans-serif"
                     }}>{opt.label}</button>
                   ))}
@@ -215,7 +215,7 @@ export default function AnalysisPage() {
                         {g.topPickCount > 0 ? g.topPickCount : "—"}
                       </div>
                       <div style={{ textAlign: "center" }}>
-                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.85rem", color: g.countingPicks > 0 ? "var(--green-400)" : "var(--text-muted)" }}>{g.countingPicks}</span>
+                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.85rem", color: g.countingPicks > 0 ? "var(--text-muted)" : "var(--text-muted)" }}>{g.countingPicks}</span>
                         {tournamentActive && g.totalPicks > 0 && <span style={{ color: "var(--text-muted)", fontSize: "0.65rem", display: "block" }}>{countingRate}%</span>}
                       </div>
                       {tournamentActive && <>
