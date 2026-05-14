@@ -53,6 +53,7 @@ export default function LeaderboardPage() {
   const [myPicksSubmitted, setMyPicksSubmitted] = useState(false);
   const [masterDeadline, setMasterDeadline] = useState<string | undefined>(undefined);
   const [, setTick] = useState(0);
+  const [currentMajorId, setCurrentMajorId] = useState<MajorId | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -71,6 +72,10 @@ export default function LeaderboardPage() {
           .filter((m: any) => ["locked","active","finalized"].includes(m.status))
           .map((m: any) => m.id as MajorId);
         setActiveMajorIds(active);
+        const currentMajor = (d.majors ?? []).find((m: any) =>
+          m.status === "active" || m.status === "locked"
+        );
+        if (currentMajor) setCurrentMajorId(currentMajor.id as MajorId);
         const masters = (d.majors ?? []).find((m: any) => m.id === "masters");
         if (masters?.pickDeadline) setMasterDeadline(masters.pickDeadline);
       }
@@ -180,7 +185,7 @@ export default function LeaderboardPage() {
   // Active tournament personal entry tracker
   function EntryTracker() {
     if (!myEntry || !tournamentStarted) return null;
-    const majorId = visibleMajors[0]?.id;
+    const majorId = currentMajorId ?? visibleMajors[0]?.id;
     if (!majorId) return null;
     const ms = myEntry.majorScores[majorId];
     if (!ms) return null;
@@ -336,7 +341,7 @@ export default function LeaderboardPage() {
             <div style={{ display: "grid", gridTemplateColumns: gridCols, padding: "5px 10px", color: "var(--text-muted)", fontSize: "0.62rem", fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               <span>#</span>
               <span>Entrant</span>
-              <span style={{ textAlign: "center" }}>PGA</span>
+              <span style={{ textAlign: "center" }}>{ALL_MAJORS.find(m => m.id === currentMajorId)?.short ?? "Score"}</span>
               <span style={{ textAlign: "center" }}>Season</span>
               <span style={{ textAlign: "center" }}>TP</span>
               <span style={{ textAlign: "center" }}>W</span>
@@ -346,8 +351,9 @@ export default function LeaderboardPage() {
               const isMe = entry.entryId === session?.entryId;
               const isExpanded = expandedEntry === entry.entryId;
               const score = getScore(entry);
-              const latestMajor = visibleMajors[visibleMajors.length - 1];
-              const latestMs = latestMajor ? entry.majorScores[latestMajor.id] : null;
+              const latestMs = currentMajorId
+                ? entry.majorScores[currentMajorId]
+                : visibleMajors.length > 0 ? entry.majorScores[visibleMajors[visibleMajors.length - 1].id] : null;
 
               return (
                 <div key={entry.entryId} className="leaderboard-row" style={{ animationDelay: `${idx * 0.02}s` }}>
@@ -407,6 +413,20 @@ export default function LeaderboardPage() {
                               borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none"
                             }}>
                               {m.name}
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+                              <div style={{
+                                fontFamily: "'DM Mono', monospace", fontSize: "1.1rem",
+                                fontWeight: 700, minWidth: 48,
+                                color: ms.finalScore < 0 ? "#e8c96a" : ms.finalScore === 0 ? "#f5f0e8" : "#6b7280"
+                              }}>
+                                {ms.finalScore === 0 ? "E" : ms.finalScore > 0 ? `+${ms.finalScore}` : `${ms.finalScore}`}
+                              </div>
+                              <div style={{ color: "var(--text-muted)", fontSize: "0.72rem",
+                                textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                                {m.name}
+                                {ms.bonus !== 0 && <span style={{ color: "#c9a84c", marginLeft: 8 }}>{ms.bonusReason}</span>}
+                              </div>
                             </div>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
                               {counting.map((pr, j) => (
