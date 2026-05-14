@@ -133,7 +133,7 @@ export default function LeaderboardPage() {
   const gridCols = !tournamentStarted
     ? "44px 1fr 160px"
     : viewMajor !== "overall"
-      ? "36px 24px 1fr 72px 72px 36px 36px"
+      ? "44px 1fr 80px 80px 36px 36px"
       : "36px 1fr 72px 72px 72px 48px";
 
   const deadlineFormatted = formatDeadline(masterDeadline);
@@ -346,12 +346,9 @@ export default function LeaderboardPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
             <div style={{ display: "grid", gridTemplateColumns: gridCols, padding: "5px 10px", color: "var(--text-muted)", fontSize: "0.62rem", fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               <span>#</span>
-              {viewMajor !== "overall" && <span style={{ textAlign: "center" }}>OVR</span>}
               <span>Entrant</span>
               <span style={{ textAlign: "center" }}>
-                {viewMajor === "overall"
-                  ? ALL_MAJORS.find(m => m.id === currentMajorId)?.short ?? "Score"
-                  : activeTabMajor?.short ?? ""}
+                {ALL_MAJORS.find(m => m.id === (viewMajor === "overall" ? currentMajorId : viewMajor))?.short ?? "Score"}
               </span>
               <span style={{ textAlign: "center" }}>Season</span>
               <span style={{ textAlign: "center" }}>TP</span>
@@ -381,13 +378,8 @@ export default function LeaderboardPage() {
                     }}
                   >
                     <span style={{ fontFamily: "'DM Mono', monospace", fontWeight: 700, fontSize: "0.75rem", color: idx === 0 ? "#facc15" : idx === 1 ? "#d1d5db" : idx === 2 ? "#cd7c2f" : "var(--text-muted)" }}>
-                      {viewMajor !== "overall" ? idx + 1 : entry.rank}
+                      {entry.rank}
                     </span>
-                    {viewMajor !== "overall" && (
-                      <span style={{ fontSize: "0.62rem", color: "var(--text-muted)", textAlign: "center", fontFamily: "'DM Mono', monospace" }}>
-                        {entry.rank}
-                      </span>
-                    )}
                     <span style={{ color: isMe ? "var(--green-400)" : "#f0faf4", fontSize: "0.78rem", fontWeight: isMe ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {entry.entrantName}
                       {isMe && <span style={{ fontSize: "0.58rem", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>(you)</span>}
@@ -404,10 +396,12 @@ export default function LeaderboardPage() {
                       {entry.totalScore !== null ? formatScore(entry.totalScore) : "--"}
                     </span>
                     <span style={{ textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", color: entry.totalTopPickWins > 0 ? "#c9a84c" : "var(--border)" }}>
-                      {entry.totalTopPickWins > 0 ? entry.totalTopPickWins : "--"}
+                      {entry.totalTopPickWins === 1 ? "⭐" :
+                       entry.totalTopPickWins > 1 ? entry.totalTopPickWins : "--"}
                     </span>
                     <span style={{ textAlign: "center", color: entry.totalWinnersHit > 0 ? "#c9a84c" : "var(--border)", fontFamily: "'DM Mono', monospace", fontSize: "0.72rem" }}>
-                      {entry.totalWinnersHit > 0 ? entry.totalWinnersHit : "--"}
+                      {entry.totalWinnersHit === 1 ? "🏆" :
+                       entry.totalWinnersHit > 1 ? entry.totalWinnersHit : "--"}
                     </span>
                   </div>
 
