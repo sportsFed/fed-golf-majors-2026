@@ -103,7 +103,10 @@ export default function LeaderboardPage() {
     return () => clearInterval(iv);
   }, []);
 
-  const visibleMajors = ALL_MAJORS.filter(m => activeMajorIds.includes(m.id));
+  const visibleMajors = ALL_MAJORS.filter(m =>
+    activeMajorIds.includes(m.id) ||
+    standings.some(e => e.majorScores[m.id] !== undefined)
+  );
   const tournamentStarted = activeMajorIds.length > 0;
   const myEntry = standings.find(e => e.entryId === session?.entryId);
 
@@ -126,9 +129,12 @@ export default function LeaderboardPage() {
     return "#6b7280";
   }
 
-  const gridCols = tournamentStarted
-    ? "36px 1fr 72px 72px 72px 48px"
-    : "44px 1fr 160px";
+  const activeTabMajor = viewMajor === "overall" ? null : ALL_MAJORS.find(m => m.id === viewMajor);
+  const gridCols = !tournamentStarted
+    ? "44px 1fr 160px"
+    : viewMajor !== "overall"
+      ? "36px 24px 1fr 72px 72px 36px 36px"
+      : "36px 1fr 72px 72px 72px 48px";
 
   const deadlineFormatted = formatDeadline(masterDeadline);
   const countdown = formatCountdown(masterDeadline);
@@ -192,6 +198,7 @@ export default function LeaderboardPage() {
     const sortedPicks = [...ms.pickResults].sort((a, b) => a.score - b.score);
     const counting = sortedPicks.slice(0, 3);
     const notCounting = sortedPicks.slice(3);
+    const trackerMajorName = ALL_MAJORS.find(m => m.id === majorId)?.name ?? "";
 
     return (
       <div style={{
@@ -202,7 +209,6 @@ export default function LeaderboardPage() {
           <div>
             <div style={{ color: "var(--text-muted)", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginBottom: 4 }}>Your Entry</div>
             <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.2rem", color: "#f0faf4", fontWeight: 700 }}>{myEntry.entrantName}</div>
-            <div style={{ color: "var(--text-muted)", fontSize: "0.78rem", marginTop: 2 }}>{visibleMajors[0]?.name}</div>
           </div>
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
             <div style={{ textAlign: "center" }}>
@@ -224,7 +230,7 @@ export default function LeaderboardPage() {
 
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 14 }}>
           <div style={{ color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>
-            Your Picks — Best 3 Count
+            {trackerMajorName} Picks — Best 3 Count
           </div>
           {counting.map((pr, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: i < 2 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
@@ -340,8 +346,13 @@ export default function LeaderboardPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
             <div style={{ display: "grid", gridTemplateColumns: gridCols, padding: "5px 10px", color: "var(--text-muted)", fontSize: "0.62rem", fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               <span>#</span>
+              {viewMajor !== "overall" && <span style={{ textAlign: "center" }}>OVR</span>}
               <span>Entrant</span>
-              <span style={{ textAlign: "center" }}>{ALL_MAJORS.find(m => m.id === currentMajorId)?.short ?? "Score"}</span>
+              <span style={{ textAlign: "center" }}>
+                {viewMajor === "overall"
+                  ? ALL_MAJORS.find(m => m.id === currentMajorId)?.short ?? "Score"
+                  : activeTabMajor?.short ?? ""}
+              </span>
               <span style={{ textAlign: "center" }}>Season</span>
               <span style={{ textAlign: "center" }}>TP</span>
               <span style={{ textAlign: "center" }}>W</span>
@@ -351,9 +362,11 @@ export default function LeaderboardPage() {
               const isMe = entry.entryId === session?.entryId;
               const isExpanded = expandedEntry === entry.entryId;
               const score = getScore(entry);
-              const latestMs = currentMajorId
-                ? entry.majorScores[currentMajorId]
-                : visibleMajors.length > 0 ? entry.majorScores[visibleMajors[visibleMajors.length - 1].id] : null;
+              const latestMs = viewMajor !== "overall"
+                ? entry.majorScores[viewMajor as MajorId]
+                : currentMajorId
+                  ? entry.majorScores[currentMajorId]
+                  : visibleMajors.length > 0 ? entry.majorScores[visibleMajors[visibleMajors.length - 1].id] : null;
 
               return (
                 <div key={entry.entryId} className="leaderboard-row" style={{ animationDelay: `${idx * 0.02}s` }}>
@@ -368,8 +381,13 @@ export default function LeaderboardPage() {
                     }}
                   >
                     <span style={{ fontFamily: "'DM Mono', monospace", fontWeight: 700, fontSize: "0.75rem", color: idx === 0 ? "#facc15" : idx === 1 ? "#d1d5db" : idx === 2 ? "#cd7c2f" : "var(--text-muted)" }}>
-                      {entry.rank}
+                      {viewMajor !== "overall" ? idx + 1 : entry.rank}
                     </span>
+                    {viewMajor !== "overall" && (
+                      <span style={{ fontSize: "0.62rem", color: "var(--text-muted)", textAlign: "center", fontFamily: "'DM Mono', monospace" }}>
+                        {entry.rank}
+                      </span>
+                    )}
                     <span style={{ color: isMe ? "var(--green-400)" : "#f0faf4", fontSize: "0.78rem", fontWeight: isMe ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {entry.entrantName}
                       {isMe && <span style={{ fontSize: "0.58rem", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>(you)</span>}
