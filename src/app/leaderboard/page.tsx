@@ -133,8 +133,8 @@ export default function LeaderboardPage() {
   const gridCols = !tournamentStarted
     ? "44px 1fr 160px"
     : viewMajor !== "overall"
-      ? "44px 1fr 80px 80px 36px 36px"
-      : "36px 1fr 72px 72px 72px 48px";
+      ? "32px 1fr 60px 64px 28px 28px"
+      : "32px 1fr 52px 60px 28px 28px";
 
   const deadlineFormatted = formatDeadline(masterDeadline);
   const countdown = formatCountdown(masterDeadline);
@@ -347,15 +347,15 @@ export default function LeaderboardPage() {
 
           /* SCORED LEADERBOARD */
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-            <div style={{ display: "grid", gridTemplateColumns: gridCols, padding: "5px 6px", color: "var(--text-muted)", fontSize: "0.62rem", fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-              <span>#</span>
-              <span>Entrant</span>
+            <div style={{ display: "grid", gridTemplateColumns: gridCols, columnGap: 0, padding: "5px 6px", color: "var(--text-muted)", fontSize: "0.62rem", fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              <span style={{ textAlign: "center" }}>#</span>
+              <span style={{ paddingLeft: 4 }}>Entrant</span>
               <span style={{ textAlign: "center" }}>
                 {ALL_MAJORS.find(m => m.id === (viewMajor === "overall" ? currentMajorId : viewMajor))?.short ?? "Score"}
               </span>
-              <span style={{ textAlign: "center" }}>Season</span>
+              <span style={{ textAlign: "center", background: "rgba(255,255,255,0.03)" }}>Season</span>
               <span style={{ textAlign: "center" }}>TP</span>
-              <span style={{ textAlign: "center" }}>W</span>
+              <span style={{ textAlign: "center", background: "rgba(255,255,255,0.03)" }}>W</span>
             </div>
 
             {displayed.map((entry, idx) => {
@@ -384,17 +384,17 @@ export default function LeaderboardPage() {
                   <div
                     onClick={() => setExpandedEntry(isExpanded ? null : entry.entryId)}
                     style={{
-                      display: "grid", gridTemplateColumns: gridCols,
+                      display: "grid", gridTemplateColumns: gridCols, columnGap: 0,
                       padding: "7px 6px", minHeight: 40, alignItems: "center", cursor: "pointer",
                       background: isMe ? "rgba(201,168,76,0.08)" : "rgba(17,45,28,0.5)",
                       border: `1px solid ${isMe ? "rgba(201,168,76,0.3)" : "var(--border)"}`,
                       borderRadius: isExpanded ? "10px 10px 0 0" : 10
                     }}
                   >
-                    <span style={{ fontFamily: "'DM Mono', monospace", fontWeight: 700, fontSize: "0.75rem", color: idx === 0 ? "#facc15" : idx === 1 ? "#d1d5db" : idx === 2 ? "#cd7c2f" : "var(--text-muted)" }}>
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontWeight: 700, fontSize: "0.75rem", color: idx === 0 ? "#facc15" : idx === 1 ? "#d1d5db" : idx === 2 ? "#cd7c2f" : "var(--text-muted)", textAlign: "center" }}>
                       {entry.rank}
                     </span>
-                    <span style={{ color: isMe ? "var(--green-400)" : "#f0faf4", fontSize: "0.78rem", fontWeight: isMe ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+                    <span style={{ color: isMe ? "var(--green-400)" : "#f0faf4", fontSize: "0.78rem", fontWeight: isMe ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, paddingLeft: 4, paddingRight: 4 }}>
                       {entry.entrantName}
                       {isMe && <span style={{ fontSize: "0.58rem", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>(you)</span>}
                     </span>
@@ -405,7 +405,7 @@ export default function LeaderboardPage() {
                           </span>
                         : <span style={{ color: "var(--border)" }}>--</span>}
                     </span>
-                    <span style={{ textAlign: "center", fontFamily: "'DM Mono', monospace", fontWeight: 700, fontSize: "0.78rem", color: scoreColor(entry.totalScore) }}>
+                    <span style={{ textAlign: "center", fontFamily: "'DM Mono', monospace", fontWeight: 700, fontSize: "0.78rem", color: scoreColor(entry.totalScore), background: "rgba(255,255,255,0.03)" }}>
                       {entry.totalScore !== null ? formatScore(entry.totalScore) : "--"}
                     </span>
                     <span style={{ textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", color: entry.totalTopPickWins > 0 ? "#c9a84c" : "var(--border)" }}>
@@ -413,7 +413,7 @@ export default function LeaderboardPage() {
                         ? (entry.totalTopPickWins > 0 ? entry.totalTopPickWins : "--")
                         : (entry.majorScores[viewMajor as MajorId]?.topPickWon ? "⭐" : "--")}
                     </span>
-                    <span style={{ textAlign: "center", color: entry.totalWinnersHit > 0 ? "#c9a84c" : "var(--border)", fontFamily: "'DM Mono', monospace", fontSize: "0.72rem" }}>
+                    <span style={{ textAlign: "center", color: entry.totalWinnersHit > 0 ? "#c9a84c" : "var(--border)", fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", background: "rgba(255,255,255,0.03)" }}>
                       {viewMajor === "overall"
                         ? (entry.totalWinnersHit > 0 ? entry.totalWinnersHit : "--")
                         : ((entry.majorScores[viewMajor as MajorId]?.winnersHit ?? 0) >= 1 ? "🏆" : "--")}
