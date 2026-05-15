@@ -327,7 +327,10 @@ export default function LeaderboardPage() {
           <div style={{ background: "rgba(17,45,28,0.5)", border: "1px solid var(--border)", borderRadius: 8, padding: "9px 16px", marginBottom: 14, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
             <span style={{ color: "var(--text-muted)", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600 }}>Key</span>
             <span style={{ color: "var(--text-secondary)", fontSize: "0.76rem" }}>Lower = better · Best 3-of-5 count</span>
-            <span style={{ color: "#facc15", fontSize: "0.76rem" }}>🏆 = top 3 includes leader · ⭐ = top pick leading · Tap row for picks</span>
+            {viewMajor === "overall"
+              ? <span style={{ color: "#facc15", fontSize: "0.76rem" }}>🏆 = top 3 includes leader · ⭐ = top pick leading · Tap row for picks</span>
+              : <span style={{ color: "#facc15", fontSize: "0.76rem" }}>⭐ = your Slot 1 pick won this major · 🏆 = one of your top 3 picks won this major · Tap row for picks</span>
+            }
           </div>
         )}
 
@@ -344,7 +347,7 @@ export default function LeaderboardPage() {
 
           /* SCORED LEADERBOARD */
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-            <div style={{ display: "grid", gridTemplateColumns: gridCols, padding: "5px 10px", color: "var(--text-muted)", fontSize: "0.62rem", fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            <div style={{ display: "grid", gridTemplateColumns: gridCols, padding: "5px 6px", color: "var(--text-muted)", fontSize: "0.62rem", fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               <span>#</span>
               <span>Entrant</span>
               <span style={{ textAlign: "center" }}>
@@ -364,6 +367,17 @@ export default function LeaderboardPage() {
                 : currentMajorId
                   ? entry.majorScores[currentMajorId]
                   : visibleMajors.length > 0 ? entry.majorScores[visibleMajors[visibleMajors.length - 1].id] : null;
+              // Score cell suffix: on overall tab show live-leader indicator for active major only.
+              // TODO: when currentLeader / liveLeaderName exists on MajorScore or standings,
+              //       compare entry picks case-insensitively against it:
+              //         topPick match → " ⭐" (priority), any top-3 match → " 🏆"
+              const scoreSuffix = latestMs
+                ? viewMajor !== "overall"
+                  ? (latestMs.topPickWon ? " ⭐" : latestMs.winnersHit > 0 ? " 🏆" : "")
+                  : !latestMs.finalized
+                    ? (latestMs.topPickWon ? " ⭐" : latestMs.winnersHit > 0 ? " 🏆" : "")
+                    : ""
+                : "";
 
               return (
                 <div key={entry.entryId} className="leaderboard-row" style={{ animationDelay: `${idx * 0.02}s` }}>
@@ -371,7 +385,7 @@ export default function LeaderboardPage() {
                     onClick={() => setExpandedEntry(isExpanded ? null : entry.entryId)}
                     style={{
                       display: "grid", gridTemplateColumns: gridCols,
-                      padding: "7px 10px", minHeight: 40, alignItems: "center", cursor: "pointer",
+                      padding: "7px 6px", minHeight: 40, alignItems: "center", cursor: "pointer",
                       background: isMe ? "rgba(201,168,76,0.08)" : "rgba(17,45,28,0.5)",
                       border: `1px solid ${isMe ? "rgba(201,168,76,0.3)" : "var(--border)"}`,
                       borderRadius: isExpanded ? "10px 10px 0 0" : 10
@@ -380,15 +394,14 @@ export default function LeaderboardPage() {
                     <span style={{ fontFamily: "'DM Mono', monospace", fontWeight: 700, fontSize: "0.75rem", color: idx === 0 ? "#facc15" : idx === 1 ? "#d1d5db" : idx === 2 ? "#cd7c2f" : "var(--text-muted)" }}>
                       {entry.rank}
                     </span>
-                    <span style={{ color: isMe ? "var(--green-400)" : "#f0faf4", fontSize: "0.78rem", fontWeight: isMe ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <span style={{ color: isMe ? "var(--green-400)" : "#f0faf4", fontSize: "0.78rem", fontWeight: isMe ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
                       {entry.entrantName}
                       {isMe && <span style={{ fontSize: "0.58rem", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>(you)</span>}
                     </span>
                     <span style={{ textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: "0.72rem" }}>
                       {latestMs
                         ? <span style={{ color: scoreColor(latestMs.finalScore), fontWeight: 700 }}>
-                            {formatScore(latestMs.finalScore)}
-                            {latestMs.topPickWon ? " ⭐" : latestMs.winnersHit > 0 ? " 🏆" : ""}
+                            {formatScore(latestMs.finalScore)}{scoreSuffix}
                           </span>
                         : <span style={{ color: "var(--border)" }}>--</span>}
                     </span>
@@ -396,12 +409,14 @@ export default function LeaderboardPage() {
                       {entry.totalScore !== null ? formatScore(entry.totalScore) : "--"}
                     </span>
                     <span style={{ textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", color: entry.totalTopPickWins > 0 ? "#c9a84c" : "var(--border)" }}>
-                      {entry.totalTopPickWins === 1 ? "⭐" :
-                       entry.totalTopPickWins > 1 ? entry.totalTopPickWins : "--"}
+                      {viewMajor === "overall"
+                        ? (entry.totalTopPickWins > 0 ? entry.totalTopPickWins : "--")
+                        : (entry.majorScores[viewMajor as MajorId]?.topPickWon ? "⭐" : "--")}
                     </span>
                     <span style={{ textAlign: "center", color: entry.totalWinnersHit > 0 ? "#c9a84c" : "var(--border)", fontFamily: "'DM Mono', monospace", fontSize: "0.72rem" }}>
-                      {entry.totalWinnersHit === 1 ? "🏆" :
-                       entry.totalWinnersHit > 1 ? entry.totalWinnersHit : "--"}
+                      {viewMajor === "overall"
+                        ? (entry.totalWinnersHit > 0 ? entry.totalWinnersHit : "--")
+                        : ((entry.majorScores[viewMajor as MajorId]?.winnersHit ?? 0) >= 1 ? "🏆" : "--")}
                     </span>
                   </div>
 
