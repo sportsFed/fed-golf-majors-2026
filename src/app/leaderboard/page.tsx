@@ -54,6 +54,7 @@ export default function LeaderboardPage() {
   const [masterDeadline, setMasterDeadline] = useState<string | undefined>(undefined);
   const [, setTick] = useState(0);
   const [currentMajorId, setCurrentMajorId] = useState<MajorId | null>(null);
+  const [finalizedMajorIds, setFinalizedMajorIds] = useState<MajorId[]>([]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -78,6 +79,10 @@ export default function LeaderboardPage() {
         if (currentMajor) setCurrentMajorId(currentMajor.id as MajorId);
         const masters = (d.majors ?? []).find((m: any) => m.id === "masters");
         if (masters?.pickDeadline) setMasterDeadline(masters.pickDeadline);
+        const finalized = (d.majors ?? [])
+          .filter((m: any) => m.status === "finalized")
+          .map((m: any) => m.id as MajorId);
+        setFinalizedMajorIds(finalized);
       }
       if (session?.entryId) {
         const picksRes = await fetch(`/api/picks/my-picks?entryId=${session.entryId}`);
@@ -116,6 +121,12 @@ export default function LeaderboardPage() {
         (a.majorScores[viewMajor as MajorId]?.finalScore ?? 999) -
         (b.majorScores[viewMajor as MajorId]?.finalScore ?? 999)
       );
+
+  // Which finalized majors to show in expanded rows:
+  // on a finalized-major tab → only that major; on Overall or active tab → all finalized
+  const expandedMajors = finalizedMajorIds.includes(viewMajor as MajorId)
+    ? visibleMajors.filter(m => m.id === viewMajor)
+    : visibleMajors.filter(m => finalizedMajorIds.includes(m.id));
 
   function getScore(e: EntryStandings) {
     if (viewMajor === "overall") return e.totalScore;
@@ -420,71 +431,70 @@ export default function LeaderboardPage() {
                     </span>
                   </div>
 
-                  {/* Expanded picks */}
+                  {/* Expanded picks — finalized majors only, list format */}
                   {isExpanded && (
                     <div style={{ background: "rgba(10,31,20,0.95)", border: "1px solid var(--border)", borderTop: "none", borderRadius: "0 0 10px 10px", padding: "14px 18px" }}>
-                      {[...visibleMajors].reverse().map((m, i) => {
+                      {[...expandedMajors].reverse().map((m, i) => {
                         const ms = entry.majorScores[m.id];
-                        if (!ms) return null;
+                        const sectionStyle = { marginTop: i > 0 ? 14 : 0, paddingTop: i > 0 ? 14 : 0, borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none" };
+                        const headerStyle = { color: "var(--text-muted)" as const, fontSize: "0.65rem", textTransform: "uppercase" as const, letterSpacing: "0.1em", fontWeight: 700, marginBottom: 6 };
+
+                        if (!ms || !ms.pickResults || ms.pickResults.length === 0) {
+                          return (
+                            <div key={m.id} style={sectionStyle}>
+                              <div style={headerStyle}>{m.name} Picks — Best 3 Count</div>
+                              <p style={{ color: "var(--text-muted)", fontSize: "0.78rem", fontStyle: "italic", margin: 0 }}>
+                                No picks submitted — penalty applied
+                              </p>
+                            </div>
+                          );
+                        }
+
                         const sortedPicks = [...ms.pickResults].sort((a, b) => a.score - b.score);
                         const counting = sortedPicks.slice(0, 3);
                         const notCounting = sortedPicks.slice(3);
-                        const winnerPick = ms.pickResults.find((pr: any) => pr.status === "winner");
+
                         return (
-                          <div key={m.id}>
-                            <div style={{
-                              color: "var(--text-muted)", fontSize: "0.65rem",
-                              textTransform: "uppercase", letterSpacing: "0.1em",
-                              fontWeight: 700, marginBottom: 8, marginTop: i > 0 ? 14 : 0,
-                              paddingTop: i > 0 ? 14 : 0,
-                              borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none"
-                            }}>
-                              {m.name}
-                            </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-                              <div style={{
-                                fontFamily: "'DM Mono', monospace", fontSize: "1.1rem",
-                                fontWeight: 700, minWidth: 48,
-                                color: ms.finalScore < 0 ? "#e8c96a" : ms.finalScore === 0 ? "#f5f0e8" : "#6b7280"
-                              }}>
+                          <div key={m.id} style={sectionStyle}>
+                            <div style={headerStyle}>{m.name} Picks — Best 3 Count</div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "1.0rem", fontWeight: 700, color: ms.finalScore < 0 ? "#e8c96a" : ms.finalScore === 0 ? "#f5f0e8" : "#6b7280" }}>
                                 {ms.finalScore === 0 ? "E" : ms.finalScore > 0 ? `+${ms.finalScore}` : `${ms.finalScore}`}
-                              </div>
-                              <div style={{ color: "var(--text-muted)", fontSize: "0.72rem",
-                                textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                                {m.name}
-                                {ms.bonus !== 0 && <span style={{ color: "#c9a84c", marginLeft: 8 }}>{ms.bonusReason}</span>}
-                              </div>
+                              </span>
+                              {ms.bonus !== 0 && <span style={{ color: "#c9a84c", fontSize: "0.72rem" }}>{ms.bonusReason}</span>}
                             </div>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
-                              {counting.map((pr, j) => (
-                                <div key={j} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 6, padding: "3px 7px" }}>
-                                  {pr.pick.isTopPick && <span style={{ color: "#facc15", fontSize: "0.62rem" }}>⭐</span>}
-                                  <span style={{ color: "#f0faf4", fontSize: "0.78rem" }}>{abbrevName(pr.pick.golferName)}</span>
-                                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", color: scoreColor(pr.score) }}>
-                                    {pr.status === "cut" ? "CUT" : pr.status === "wd" ? "WD" : pr.status === "missing" ? "--" : formatScore(pr.score)}
-                                  </span>
-                                  {pr.status === "winner" && <span style={{ fontSize: "0.62rem" }}>🏆</span>}
+                            {counting.map((pr, j) => (
+                              <div key={j} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 0", borderBottom: j < 2 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  <span style={{ color: "#c9a84c", fontSize: "0.68rem", fontFamily: "'DM Mono', monospace", width: 20 }}>#{j+1}</span>
+                                  {pr.pick.isTopPick && <span style={{ fontSize: "0.68rem" }}>⭐</span>}
+                                  <span style={{ color: "#f0faf4", fontSize: "0.83rem", fontWeight: 500 }}>{pr.pick.golferName}</span>
+                                  {pr.status === "winner" && <span style={{ fontSize: "0.68rem" }}>🏆</span>}
                                 </div>
-                              ))}
-                              <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.15)", margin: "0 2px" }} />
-                              {notCounting.map((pr, j) => (
-                                <div key={j} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(0,0,0,0.15)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, padding: "3px 7px", opacity: 0.5 }}>
-                                  {pr.pick.isTopPick && <span style={{ color: "#facc15", fontSize: "0.62rem" }}>*</span>}
-                                  <span style={{ color: "#f0faf4", fontSize: "0.78rem", fontStyle: "italic" }}>{abbrevName(pr.pick.golferName)}</span>
-                                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", color: "#6b7280", fontStyle: "italic" }}>
-                                    {pr.status === "cut" ? "CUT" : pr.status === "wd" ? "WD" : pr.status === "missing" ? "--" : formatScore(pr.score)}
-                                  </span>
+                                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.8rem", fontWeight: 700, color: scoreColor(pr.score) }}>
+                                  {pr.status === "cut" ? "CUT" : pr.status === "wd" ? "WD" : pr.status === "missing" ? "--" : formatScore(pr.score)}
+                                </span>
+                              </div>
+                            ))}
+                            {notCounting.length > 0 && (
+                              <>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "8px 0" }}>
+                                  <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
+                                  <span style={{ color: "var(--text-muted)", fontSize: "0.62rem", fontFamily: "'DM Mono', monospace" }}>NOT COUNTING</span>
+                                  <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
                                 </div>
-                              ))}
-                            </div>
-                            {ms.bonus !== 0 && (
-                              winnerPick
-                                ? <div style={{ color: "#c9a84c", fontSize: "0.72rem", marginTop: 5 }}>
-                                    {winnerPick.pick.golferName}
-                                    {winnerPick.pick.isTopPick ? " (Top Pick)" : ""}
-                                    {" "}{ms.bonus} strokes
+                                {notCounting.map((pr, j) => (
+                                  <div key={j} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 0", opacity: 0.45 }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                      {pr.pick.isTopPick && <span style={{ color: "#facc15", fontSize: "0.66rem" }}>*</span>}
+                                      <span style={{ color: "#f0faf4", fontSize: "0.78rem", fontStyle: "italic" }}>{pr.pick.golferName}</span>
+                                    </div>
+                                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.75rem", color: "#6b7280", fontStyle: "italic" }}>
+                                      {pr.status === "cut" ? "CUT" : pr.status === "wd" ? "WD" : pr.status === "missing" ? "--" : formatScore(pr.score)}
+                                    </span>
                                   </div>
-                                : <div style={{ color: "#c9a84c", fontSize: "0.72rem", marginTop: 5 }}>{ms.bonusReason}</div>
+                                ))}
+                              </>
                             )}
                           </div>
                         );

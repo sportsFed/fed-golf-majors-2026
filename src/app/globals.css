@@ -106,3 +106,13 @@ select.input { appearance: none; cursor: pointer; }
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--fairway-dark); }
 ::-webkit-scrollbar-thumb { background: var(--fairway-light); border-radius: 3px; }
+
+/* Responsive nav */
+.nav-label-mobile { display: none; }
+
+@media (max-width: 768px) {
+  .nav-wordmark { display: none; }
+  .nav-hide-mobile { display: none !important; }
+  .nav-label-desktop { display: none; }
+  .nav-label-mobile { display: inline; }
+}

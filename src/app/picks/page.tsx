@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import Nav from "@/components/shared/Nav";
 import { getSession } from "@/lib/auth";
 import { ODDS_BONUSES } from "@/types";
-import type { MajorId, FieldGolfer, OddsTier, Major } from "@/types";
+import type { MajorId, FieldGolfer, OddsTier, Major, EntryStandings } from "@/types";
+import { formatScore } from "@/lib/scoring";
 
 const MAJORS: { id: MajorId; name: string; short: string; dates: string }[] = [
   { id: "masters",      name: "The Masters",           short: "Masters",      dates: "Apr 10–13" },
@@ -48,6 +49,7 @@ export default function PicksPage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [locked, setLocked] = useState(false);
+  const [myStandings, setMyStandings] = useState<EntryStandings | null>(null);
 
   useEffect(() => {
     if (!session) { router.push("/login"); return; }
@@ -57,15 +59,21 @@ export default function PicksPage() {
   async function loadData(majorId: MajorId) {
     setLoading(true); setError(""); setActiveSlot(null);
     try {
-      const [fieldRes, entryRes, majorRes] = await Promise.all([
+      const [fieldRes, entryRes, majorRes, lbRes] = await Promise.all([
         fetch(`/api/picks/field?majorId=${majorId}`),
         fetch(`/api/picks/my-picks?entryId=${session!.entryId}`),
-        fetch(`/api/picks/major-info?majorId=${majorId}`)
+        fetch(`/api/picks/major-info?majorId=${majorId}`),
+        fetch("/api/leaderboard")
       ]);
 
       const fieldData = await fieldRes.json();
       const entryData = await entryRes.json();
       const majorData = await majorRes.json();
+      if (lbRes.ok) {
+        const lbData = await lbRes.json();
+        const myEntry = (lbData.standings ?? []).find((e: EntryStandings) => e.entryId === session!.entryId);
+        setMyStandings(myEntry ?? null);
+      }
 
       const golfers: FieldGolfer[] = fieldData.golfers ?? [];
       setField(golfers);
@@ -161,6 +169,21 @@ export default function PicksPage() {
   const allFilled = picks.every(Boolean);
   const mastersPicks = allMajorPicks["masters"] ?? [];
   const hasSubmittedThisMajor = (allMajorPicks[activeMajor] ?? []).length > 0;
+
+  function scoreColor(score: number | null): string {
+    if (score === null) return "var(--border)";
+    if (score < 0) return "#e8c96a";
+    if (score === 0) return "#f5f0e8";
+    return "#6b7280";
+  }
+
+  const isFinalized = majorInfo?.status === "finalized";
+  const finalizedMs = isFinalized ? myStandings?.majorScores[activeMajor] : null;
+  const finalizedSortedPicks = finalizedMs?.pickResults
+    ? [...finalizedMs.pickResults].sort((a, b) => a.score - b.score)
+    : [];
+  const finalizedCounting = finalizedSortedPicks.slice(0, 3);
+  const finalizedNotCounting = finalizedSortedPicks.slice(3);
 
   const deadline = majorInfo?.pickDeadline;
   const deadlineFormatted = deadline
@@ -261,6 +284,69 @@ export default function PicksPage() {
           <div style={{ textAlign: "center", padding: "60px 0", color: "var(--text-muted)" }}>
             <div style={{ fontSize: "2rem", marginBottom: 12 }}>⛳</div>
             <p style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.85rem" }}>Loading field…</p>
+          </div>
+        ) : isFinalized ? (
+          /* ── FINALIZED MAJOR: picks-only results view ── */
+          <div className="card" style={{ padding: "24px 28px" }}>
+            <div style={{ color: "var(--text-muted)", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 20, fontWeight: 600 }}>
+              {MAJORS.find(m => m.id === activeMajor)?.name} — Final Results
+            </div>
+            {!finalizedMs || finalizedSortedPicks.length === 0 ? (
+              <p style={{ color: "var(--text-muted)", fontSize: "0.88rem", fontStyle: "italic", margin: 0 }}>
+                No picks submitted — penalty applied
+              </p>
+            ) : (
+              <>
+                <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 20, paddingBottom: 16, borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                  <div>
+                    <div style={{ color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Final Score</div>
+                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "1.8rem", fontWeight: 700, color: scoreColor(finalizedMs.finalScore) }}>
+                      {formatScore(finalizedMs.finalScore)}
+                    </div>
+                  </div>
+                  {finalizedMs.bonus !== 0 && (
+                    <div style={{ background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 8, padding: "10px 16px" }}>
+                      <div style={{ color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>Bonus</div>
+                      <div style={{ color: "#c9a84c", fontSize: "0.88rem", fontWeight: 600 }}>{finalizedMs.bonusReason}</div>
+                    </div>
+                  )}
+                </div>
+                <div style={{ color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10, fontWeight: 600 }}>Best 3 Count</div>
+                {finalizedCounting.map((pr, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0", borderBottom: i < 2 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ color: "#c9a84c", fontSize: "0.7rem", fontFamily: "'DM Mono', monospace", width: 20 }}>#{i+1}</span>
+                      {pr.pick.isTopPick && <span style={{ fontSize: "0.78rem" }}>⭐</span>}
+                      <span style={{ color: "#f0faf4", fontSize: "0.93rem", fontWeight: 600 }}>{pr.pick.golferName}</span>
+                      {pr.status === "winner" && <span style={{ fontSize: "0.78rem" }}>🏆</span>}
+                    </div>
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.9rem", fontWeight: 700, color: scoreColor(pr.score) }}>
+                      {pr.status === "cut" ? "CUT" : pr.status === "wd" ? "WD" : pr.status === "missing" ? "--" : formatScore(pr.score)}
+                    </span>
+                  </div>
+                ))}
+                {finalizedNotCounting.length > 0 && (
+                  <>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "12px 0" }}>
+                      <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
+                      <span style={{ color: "var(--text-muted)", fontSize: "0.62rem", fontFamily: "'DM Mono', monospace" }}>NOT COUNTING</span>
+                      <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
+                    </div>
+                    {finalizedNotCounting.map((pr, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", opacity: 0.45 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          {pr.pick.isTopPick && <span style={{ color: "#facc15", fontSize: "0.7rem" }}>*</span>}
+                          <span style={{ color: "#f0faf4", fontSize: "0.88rem", fontStyle: "italic" }}>{pr.pick.golferName}</span>
+                        </div>
+                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.85rem", color: "#6b7280", fontStyle: "italic" }}>
+                          {pr.status === "cut" ? "CUT" : pr.status === "wd" ? "WD" : pr.status === "missing" ? "--" : formatScore(pr.score)}
+                        </span>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </>
+            )}
           </div>
         ) : field.length === 0 ? (
           <div style={{ textAlign: "center", padding: "60px 0" }}>
