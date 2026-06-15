@@ -21,7 +21,7 @@ export default function Nav() {
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 20px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 56 }}>
         <button onClick={() => router.push("/leaderboard")}
           style={{ display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-          <Image src="/pga-fed-logo.png" alt="Fed Golf Majors - PGA Championship" width={34} height={34} style={{ objectFit: "contain" }} />
+          <Image src="/USOpen2026-Fed.png" alt="Fed Golf Majors - PGA Championship" width={34} height={34} style={{ objectFit: "contain", borderRadius: "50%", boxShadow: "0 0 0 2px rgba(255,255,255,0.15), 0 0 12px rgba(255,255,255,0.08)" }} />
           <span style={{ fontFamily: "'Playfair Display', serif", color: "#f0faf4", fontWeight: 700, fontSize: "0.95rem", letterSpacing: "0.01em" }}>
             Fed Golf Majors <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>2026</span>
           </span>
