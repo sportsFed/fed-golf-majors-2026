@@ -76,6 +76,12 @@ export async function GET(req: NextRequest) {
         .map((p: any) => p.golferName).join(" | ");
       const pgaPicks = (majorsData["pga"]?.picks ?? [])
         .map((p: any) => p.golferName).join(" | ");
+      const usOpenPicksList = (majorsData["us-open"]?.picks ?? []) as any[];
+      const usOpenPicks = usOpenPicksList.length === 0
+        ? ""
+        : usOpenPicksList
+            .map((p: any) => p.isTopPick ? `${p.golferName} (TP)` : p.golferName)
+            .join(", ");
 
       return {
         entryId,
@@ -89,7 +95,8 @@ export async function GET(req: NextRequest) {
         winnersHit,
         topPickWins,
         mastersPicks,
-        pgaPicks
+        pgaPicks,
+        usOpenPicks
       };
     });
 
@@ -118,7 +125,7 @@ export async function GET(req: NextRequest) {
       "Total Score", "Masters Score", "PGA Score",
       "US Open Score", "British Open Score",
       "Winners Hit", "Top Pick Wins",
-      "Masters Picks", "PGA Picks"
+      "Masters Picks", "PGA Picks", "US Open Picks"
     ];
 
     const csvRows = rows.map(row => {
@@ -135,7 +142,8 @@ export async function GET(req: NextRequest) {
         csvField(r.winnersHit),
         csvField(r.topPickWins),
         csvField(r.mastersPicks ? `"${r.mastersPicks}"` : ""),
-        csvField(r.pgaPicks ? `"${r.pgaPicks}"` : "")
+        csvField(r.pgaPicks ? `"${r.pgaPicks}"` : ""),
+        csvField(r.usOpenPicks)
       ].join(",");
     });
 
