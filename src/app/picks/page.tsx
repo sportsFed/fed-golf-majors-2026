@@ -36,7 +36,7 @@ function DeadlineCountdown({ deadline }: { deadline: string }) {
 export default function PicksPage() {
   const router = useRouter();
   const session = getSession();
-  const [activeMajor, setActiveMajor] = useState<MajorId>("pga");
+  const [activeMajor, setActiveMajor] = useState<MajorId>("us-open");
   const [field, setField] = useState<FieldGolfer[]>([]);
   const [majorInfo, setMajorInfo] = useState<Major | null>(null);
   const [picks, setPicks] = useState<(FieldGolfer | null)[]>([null,null,null,null,null]);

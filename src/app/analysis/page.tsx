@@ -52,7 +52,7 @@ export default function AnalysisPage() {
   const router = useRouter();
   const session = getSession();
   const [data, setData] = useState<AnalysisData | null>(null);
-  const [majorId, setMajorId] = useState("pga");
+  const [majorId, setMajorId] = useState("us-open");
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<"picks" | "counting" | "score" | "topPick">("picks");
 

@@ -6,12 +6,14 @@ import { getSession } from "@/lib/auth";
 import { formatScore } from "@/lib/scoring";
 import type { EntryStandings, MajorId } from "@/types";
 
-const ALL_MAJORS: { id: MajorId; name: string; short: string }[] = [
-  { id: "masters",      name: "The Masters",           short: "Masters" },
-  { id: "pga",          name: "PGA Championship",      short: "PGA" },
-  { id: "us-open",      name: "U.S. Open",             short: "US Open" },
-  { id: "british-open", name: "The Open Championship", short: "British" }
+const ALL_MAJORS: { id: MajorId; name: string; short: string; abbr: string }[] = [
+  { id: "masters",      name: "The Masters",           short: "Masters",     abbr: "MST" },
+  { id: "pga",          name: "PGA Championship",      short: "PGA",         abbr: "PGA" },
+  { id: "us-open",      name: "U.S. Open",             short: "US Open",     abbr: "USO" },
+  { id: "british-open", name: "The Open Championship", short: "British",     abbr: "BOC" }
 ];
+
+const EXPANDED_MAJOR_ORDER: MajorId[] = ["us-open", "pga", "masters"];
 
 function abbrevName(name: string): string {
   const parts = name.trim().split(" ");
@@ -122,11 +124,17 @@ export default function LeaderboardPage() {
         (b.majorScores[viewMajor as MajorId]?.finalScore ?? 999)
       );
 
-  // Which finalized majors to show in expanded rows:
-  // on a finalized-major tab → only that major; on Overall or active tab → all finalized
-  const expandedMajors = finalizedMajorIds.includes(viewMajor as MajorId)
-    ? visibleMajors.filter(m => m.id === viewMajor)
-    : visibleMajors.filter(m => finalizedMajorIds.includes(m.id));
+  // on a specific major tab → only that major; on Overall → all active+finalized in reverse-chron order
+  const expandedMajors = (() => {
+    const majors = (finalizedMajorIds.includes(viewMajor as MajorId) || viewMajor === currentMajorId)
+      ? visibleMajors.filter(m => m.id === viewMajor)
+      : visibleMajors.filter(m => finalizedMajorIds.includes(m.id) || m.id === currentMajorId);
+    return [...majors].sort((a, b) => {
+      const ai = EXPANDED_MAJOR_ORDER.indexOf(a.id);
+      const bi = EXPANDED_MAJOR_ORDER.indexOf(b.id);
+      return (ai === -1 ? Infinity : ai) - (bi === -1 ? Infinity : bi);
+    });
+  })();
 
   function getScore(e: EntryStandings) {
     if (viewMajor === "overall") return e.totalScore;
@@ -141,11 +149,12 @@ export default function LeaderboardPage() {
   }
 
   const activeTabMajor = viewMajor === "overall" ? null : ALL_MAJORS.find(m => m.id === viewMajor);
+  const overallScoreCols = visibleMajors.map(() => "52px").join(" ");
   const gridCols = !tournamentStarted
     ? "44px 1fr 160px"
     : viewMajor !== "overall"
       ? "32px 1fr 60px 64px 28px 28px"
-      : "32px 1fr 52px 60px 28px 28px";
+      : `32px 1fr ${overallScoreCols} 60px 28px 28px`;
 
   const deadlineFormatted = formatDeadline(masterDeadline);
   const countdown = formatCountdown(masterDeadline);
@@ -320,7 +329,7 @@ export default function LeaderboardPage() {
         {/* Major tabs */}
         {tournamentStarted && visibleMajors.length > 1 && (
           <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
-            {[{ id: "overall", short: "Overall" }, ...visibleMajors].map(t => (
+            {[{ id: "overall", short: "Overall" }, ...[...visibleMajors].reverse()].map(t => (
               <button key={t.id} onClick={() => setViewMajor(t.id as any)} style={{
                 padding: "6px 16px", borderRadius: 20,
                 border: `1px solid ${viewMajor === t.id ? "var(--green-400)" : "var(--border)"}`,
@@ -361,9 +370,14 @@ export default function LeaderboardPage() {
             <div style={{ display: "grid", gridTemplateColumns: gridCols, columnGap: 0, padding: "5px 6px", color: "var(--text-muted)", fontSize: "0.62rem", fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               <span style={{ textAlign: "center" }}>#</span>
               <span style={{ paddingLeft: 4 }}>Entrant</span>
-              <span style={{ textAlign: "center" }}>
-                {ALL_MAJORS.find(m => m.id === (viewMajor === "overall" ? currentMajorId : viewMajor))?.short ?? "Score"}
-              </span>
+              {viewMajor === "overall"
+                ? visibleMajors.map(m => (
+                    <span key={m.id} style={{ textAlign: "center" }}>{m.abbr}</span>
+                  ))
+                : <span style={{ textAlign: "center" }}>
+                    {ALL_MAJORS.find(m => m.id === viewMajor)?.short ?? "Score"}
+                  </span>
+              }
               <span style={{ textAlign: "center", background: "rgba(255,255,255,0.03)" }}>Season</span>
               <span style={{ textAlign: "center" }}>TP</span>
               <span style={{ textAlign: "center", background: "rgba(255,255,255,0.03)" }}>W</span>
@@ -409,13 +423,27 @@ export default function LeaderboardPage() {
                       {entry.entrantName}
                       {isMe && <span style={{ fontSize: "0.58rem", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>(you)</span>}
                     </span>
-                    <span style={{ textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: "0.72rem" }}>
-                      {latestMs
-                        ? <span style={{ color: scoreColor(latestMs.finalScore), fontWeight: 700 }}>
-                            {formatScore(latestMs.finalScore)}{scoreSuffix}
-                          </span>
-                        : <span style={{ color: "var(--border)" }}>--</span>}
-                    </span>
+                    {viewMajor === "overall"
+                      ? visibleMajors.map(m => {
+                          const ms = entry.majorScores[m.id];
+                          return (
+                            <span key={m.id} style={{ textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: "0.72rem" }}>
+                              {ms
+                                ? <span style={{ color: scoreColor(ms.finalScore), fontWeight: 700 }}>
+                                    {formatScore(ms.finalScore)}
+                                  </span>
+                                : <span style={{ color: "var(--border)" }}>--</span>}
+                            </span>
+                          );
+                        })
+                      : <span style={{ textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: "0.72rem" }}>
+                          {latestMs
+                            ? <span style={{ color: scoreColor(latestMs.finalScore), fontWeight: 700 }}>
+                                {formatScore(latestMs.finalScore)}{scoreSuffix}
+                              </span>
+                            : <span style={{ color: "var(--border)" }}>--</span>}
+                        </span>
+                    }
                     <span style={{ textAlign: "center", fontFamily: "'DM Mono', monospace", fontWeight: 700, fontSize: "0.78rem", color: scoreColor(entry.totalScore), background: "rgba(255,255,255,0.03)" }}>
                       {entry.totalScore !== null ? formatScore(entry.totalScore) : "--"}
                     </span>
@@ -434,7 +462,7 @@ export default function LeaderboardPage() {
                   {/* Expanded picks — finalized majors only, list format */}
                   {isExpanded && (
                     <div style={{ background: "rgba(10,31,20,0.95)", border: "1px solid var(--border)", borderTop: "none", borderRadius: "0 0 10px 10px", padding: "14px 18px" }}>
-                      {[...expandedMajors].reverse().map((m, i) => {
+                      {expandedMajors.map((m, i) => {
                         const ms = entry.majorScores[m.id];
                         const sectionStyle = { marginTop: i > 0 ? 14 : 0, paddingTop: i > 0 ? 14 : 0, borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none" };
                         const headerStyle = { color: "var(--text-muted)" as const, fontSize: "0.65rem", textTransform: "uppercase" as const, letterSpacing: "0.1em", fontWeight: 700, marginBottom: 6 };
