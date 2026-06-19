@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
-import { parseEspnCsv, calculateMajorScore, calculateStandings, normalizeName } from "@/lib/scoring";
-import type { Entry, MajorId, AdminOverride, NameMapping, Major, MajorScore } from "@/types";
+import { parseEspnCsv, calculateMajorScore } from "@/lib/scoring";
+import { computeStandings } from "@/lib/getStandings";
+import type { Entry, MajorId, AdminOverride } from "@/types";
 
 // Simple in-memory throttle — prevents snapshot on every single request
 const lastSnapshot: Record<string, number> = {};
@@ -49,112 +50,11 @@ export async function GET() {
   }
 
   try {
-    const [entriesSnap, majorsSnap] = await Promise.all([
-      adminDb.collection("entries").get(),
-      adminDb.collection("majors").get()
-    ]);
-    const entries = entriesSnap.docs.map(d => d.data() as Entry);
-    const majors = majorsSnap.docs.map(d => d.data() as Major);
-    const majorScores: Record<string, Partial<Record<MajorId, MajorScore>>> = {};
-    entries.forEach(e => { majorScores[e.id] = {}; });
+    const { standings, entries, liveMajorContexts } = await computeStandings();
 
-    // Determine the active (live) major upfront so we can fetch overrides/nameMappings once
-    const activeMajor = majors.find(m => m.status !== "upcoming" && m.status !== "open" && m.status !== "finalized") ?? null;
-
-    const [activeOverrides, activeMappingsSnap] = activeMajor
-      ? await Promise.all([
-          adminDb.collection("overrides").where("majorId", "==", activeMajor.id).get(),
-          adminDb.collection("nameMappings").where("majorId", "==", activeMajor.id).get()
-        ])
-      : [null, null];
-
-    const preloadedOverrides: AdminOverride[] = activeOverrides ? activeOverrides.docs.map(d => d.data() as AdminOverride) : [];
-    const preloadedNameMappings: Record<string, string> = {};
-    if (activeMappingsSnap) {
-      activeMappingsSnap.docs.map(d => d.data() as NameMapping).forEach(m => {
-        preloadedNameMappings[normalizeName(m.adminName)] = m.espnName;
-      });
+    for (const { majorId, liveScores, overrides, nameMappings } of liveMajorContexts) {
+      maybeSnapshot(majorId, liveScores, entries, overrides, nameMappings);
     }
-
-    for (const major of majors) {
-      if (major.status === "upcoming" || major.status === "open") continue;
-
-      if (major.status === "finalized") {
-        const finalSnap = await adminDb.collection("finalizedScores")
-          .where("majorId", "==", major.id).get();
-        if (!finalSnap.empty) {
-          finalSnap.docs.forEach(d => {
-            const data = d.data();
-            if (majorScores[data.entryId])
-              majorScores[data.entryId][major.id as MajorId] = data as MajorScore;
-          });
-          continue;
-        }
-        // No snapshots — fall through to live calculation as safety net
-      }
-
-      let liveScores: ReturnType<typeof parseEspnCsv> = [];
-      if (major.sheetCsvUrl) {
-        try {
-          const csvRes = await fetch(major.sheetCsvUrl, { next: { revalidate: 300 } });
-          if (csvRes.ok) {
-            const csvText = await csvRes.text();
-            liveScores = parseEspnCsv(csvText);
-          }
-        } catch {}
-      }
-
-      // Use preloaded overrides/nameMappings for the active major; fall back to a fresh fetch for any other live major
-      let overrides: AdminOverride[];
-      let nameMappings: Record<string, string>;
-      if (activeMajor && major.id === activeMajor.id) {
-        overrides = preloadedOverrides;
-        nameMappings = preloadedNameMappings;
-      } else {
-        const [overridesSnap, mappingsSnap] = await Promise.all([
-          adminDb.collection("overrides").where("majorId", "==", major.id).get(),
-          adminDb.collection("nameMappings").where("majorId", "==", major.id).get()
-        ]);
-        overrides = overridesSnap.docs.map(d => d.data() as AdminOverride);
-        nameMappings = {};
-        mappingsSnap.docs.map(d => d.data() as NameMapping).forEach(m => {
-          nameMappings[normalizeName(m.adminName)] = m.espnName;
-        });
-      }
-
-      for (const entry of entries) {
-        const majorEntry = entry.majors?.[major.id as MajorId];
-
-        if (!majorEntry?.picks?.length) {
-          const entryAny = majorEntry as any;
-          if (entryAny?.manualScore !== undefined && entryAny?.manualScore !== null) {
-            majorScores[entry.id][major.id as MajorId] = {
-              majorId: major.id as MajorId,
-              pickResults: [],
-              countedScore: Number(entryAny.manualScore),
-              bonus: 0,
-              bonusReason: null,
-              finalScore: Number(entryAny.manualScore),
-              winnersHit: 0,
-              topPickWon: false,
-              finalized: false
-            } as any;
-          }
-          continue;
-        }
-
-        const ms = calculateMajorScore(majorEntry.picks, liveScores, nameMappings, overrides, false);
-        ms.majorId = major.id as MajorId;
-        majorScores[entry.id][major.id as MajorId] = ms;
-      }
-
-      // Auto-snapshot throttled to every 30 min
-      if (liveScores.length > 0) {
-        maybeSnapshot(major.id, liveScores, entries, overrides, nameMappings);
-      }
-    }
-
-    const standings = calculateStandings(entries, majorScores);
 
     cachedResult = { standings };
     cacheTimestamp = Date.now();

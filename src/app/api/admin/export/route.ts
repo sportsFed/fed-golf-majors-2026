@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/lib/firebase-admin";
+import { NextRequest } from "next/server";
+import { computeStandings } from "@/lib/getStandings";
 
-function formatScore(score: number): string {
+function formatScore(score: number | null | undefined): string {
+  if (score === null || score === undefined) return "";
   if (score === 0) return "E";
   if (score > 0) return `+${score}`;
   return `${score}`;
@@ -23,129 +24,77 @@ export async function GET(req: NextRequest) {
     return new Response("Unauthorized", { status: 401 });
   }
 
+  // Version gate — callers should use ?v=3
+  const version = req.nextUrl.searchParams.get("v");
+  if (version === "2") {
+    return new Response("Use v=3 for the updated export format", { status: 400 });
+  }
+
   try {
-    // Fetch entries and finalized scores in parallel
-    const [entriesSnap, finalizedSnap] = await Promise.all([
-      adminDb.collection("entries").get(),
-      adminDb.collection("finalizedScores").get()
-    ]);
+    const { standings, entries } = await computeStandings();
 
-    // Group finalized scores by entryId and majorId
-    const finalizedByEntry: Record<string, Record<string, any>> = {};
-    finalizedSnap.docs.forEach(doc => {
-      const data = doc.data();
-      const entryId = data.entryId;
-      const majorId = data.majorId;
-      if (!finalizedByEntry[entryId]) finalizedByEntry[entryId] = {};
-      finalizedByEntry[entryId][majorId] = data;
-    });
+    // Build a lookup from entryId → entry (for picks and email)
+    const entriesById = new Map(entries.map(e => [e.id, e]));
 
-    const MAJOR_IDS = ["masters", "pga", "us-open", "british-open"];
+    const rows = standings.map(s => {
+      const entry = entriesById.get(s.entryId);
+      const majorsData = entry?.majors ?? {};
 
-    // Build standings rows
-    const rows = entriesSnap.docs.map(doc => {
-      const entry = doc.data();
-      const entryId = entry.id ?? doc.id;
-      const majorScores = finalizedByEntry[entryId] ?? {};
-
-      // Calculate totals
-      let totalScore = 0;
-      let winnersHit = 0;
-      let topPickWins = 0;
-      let hasAnyScore = false;
-
-      MAJOR_IDS.forEach(mid => {
-        const ms = majorScores[mid];
-        if (ms) {
-          totalScore += ms.finalScore ?? 0;
-          winnersHit += ms.winnersHit ?? 0;
-          topPickWins += ms.topPickWon ? 1 : 0;
-          hasAnyScore = true;
-        }
-      });
-
-      // Per-major scores
-      const mastersScore = majorScores["masters"]?.finalScore;
-      const pgaScore = majorScores["pga"]?.finalScore;
-      const usOpenScore = majorScores["us-open"]?.finalScore;
-      const britishScore = majorScores["british-open"]?.finalScore;
-
-      // Pick lists from entry.majors
-      const majorsData = entry.majors ?? {};
-      const mastersPicks = (majorsData["masters"]?.picks ?? [])
+      const mastersPicks = ((majorsData as any)["masters"]?.picks ?? [])
         .map((p: any) => p.golferName).join(" | ");
-      const pgaPicks = (majorsData["pga"]?.picks ?? [])
+      const pgaPicks = ((majorsData as any)["pga"]?.picks ?? [])
         .map((p: any) => p.golferName).join(" | ");
-      const usOpenPicksList = (majorsData["us-open"]?.picks ?? []) as any[];
+      const usOpenPicksList = ((majorsData as any)["us-open"]?.picks ?? []) as any[];
       const usOpenPicks = usOpenPicksList.length === 0
         ? ""
         : usOpenPicksList
             .map((p: any) => p.isTopPick ? `${p.golferName} (TP)` : p.golferName)
             .join(", ");
 
+      const mastersScore = s.majorScores?.["masters"]?.finalScore;
+      const pgaScore = s.majorScores?.["pga"]?.finalScore;
+      const usOpenScore = s.majorScores?.["us-open"]?.finalScore;
+
       return {
-        entryId,
-        name: entry.entrantName ?? "",
-        email: entry.email ?? "",
-        totalScore: hasAnyScore ? totalScore : null,
-        mastersScore: mastersScore !== undefined ? mastersScore : null,
-        pgaScore: pgaScore !== undefined ? pgaScore : null,
-        usOpenScore: usOpenScore !== undefined ? usOpenScore : null,
-        britishScore: britishScore !== undefined ? britishScore : null,
-        winnersHit,
-        topPickWins,
+        rank: s.rank,
+        name: s.entrantName ?? "",
+        email: entry?.email ?? "",
+        mastersScore: mastersScore !== undefined && mastersScore !== null ? mastersScore : null,
+        pgaScore: pgaScore !== undefined && pgaScore !== null ? pgaScore : null,
+        usOpenScore: usOpenScore !== undefined && usOpenScore !== null ? usOpenScore : null,
+        totalScore: s.totalScore !== undefined && s.totalScore !== null ? s.totalScore : null,
+        usOpenPicks,
         mastersPicks,
         pgaPicks,
-        usOpenPicks
+        winnersHit: s.totalWinnersHit,
+        topPickWins: s.totalTopPickWins
       };
     });
 
-    // Sort by total score ascending (lower = better), nulls last
-    rows.sort((a, b) => {
-      if (a.totalScore === null && b.totalScore === null) return 0;
-      if (a.totalScore === null) return 1;
-      if (b.totalScore === null) return -1;
-      return a.totalScore - b.totalScore;
-    });
-
-    // Assign ranks with tie handling
-    let rank = 1;
-    for (let i = 0; i < rows.length; i++) {
-      if (i > 0) {
-        const prev = rows[i - 1];
-        const curr = rows[i];
-        if (curr.totalScore !== prev.totalScore) rank = i + 1;
-      }
-      (rows[i] as any).rank = rank;
-    }
-
-    // Build CSV
+    // Columns: Rank | Name | Email | Masters | PGA | US Open | Season Total | US Open Picks | ...
     const headers = [
       "Rank", "Name", "Email",
-      "Total Score", "Masters Score", "PGA Score",
-      "US Open Score", "British Open Score",
-      "Winners Hit", "Top Pick Wins",
-      "Masters Picks", "PGA Picks", "US Open Picks"
+      "Masters Score", "PGA Score", "US Open Score",
+      "Season Total",
+      "US Open Picks",
+      "Masters Picks", "PGA Picks",
+      "Winners Hit", "Top Pick Wins"
     ];
 
-    const csvRows = rows.map(row => {
-      const r = row as any;
-      return [
-        csvField(r.rank),
-        csvField(r.name),
-        csvField(r.email),
-        csvField(r.totalScore !== null ? formatScore(r.totalScore) : ""),
-        csvField(r.mastersScore !== null ? formatScore(r.mastersScore) : ""),
-        csvField(r.pgaScore !== null ? formatScore(r.pgaScore) : ""),
-        csvField(r.usOpenScore !== null ? formatScore(r.usOpenScore) : ""),
-        csvField(r.britishScore !== null ? formatScore(r.britishScore) : ""),
-        csvField(r.winnersHit),
-        csvField(r.topPickWins),
-        csvField(r.mastersPicks ? `"${r.mastersPicks}"` : ""),
-        csvField(r.pgaPicks ? `"${r.pgaPicks}"` : ""),
-        csvField(r.usOpenPicks)
-      ].join(",");
-    });
+    const csvRows = rows.map(row => [
+      csvField(row.rank),
+      csvField(row.name),
+      csvField(row.email),
+      csvField(formatScore(row.mastersScore)),
+      csvField(formatScore(row.pgaScore)),
+      csvField(formatScore(row.usOpenScore)),
+      csvField(formatScore(row.totalScore)),
+      csvField(row.usOpenPicks),
+      csvField(row.mastersPicks ? `"${row.mastersPicks}"` : ""),
+      csvField(row.pgaPicks ? `"${row.pgaPicks}"` : ""),
+      csvField(row.winnersHit),
+      csvField(row.topPickWins)
+    ].join(","));
 
     const csv = [headers.join(","), ...csvRows].join("\n");
 
