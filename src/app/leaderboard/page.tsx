@@ -211,32 +211,46 @@ export default function LeaderboardPage() {
   // Active tournament personal entry tracker
   function EntryTracker() {
     if (!myEntry || !tournamentStarted) return null;
-    const majorId = currentMajorId ?? visibleMajors[0]?.id;
-    if (!majorId) return null;
-    const ms = myEntry.majorScores[majorId];
-    if (!ms) return null;
-    const sortedPicks = [...ms.pickResults].sort((a, b) => a.score - b.score);
+    const activeMajorId = currentMajorId; // null when all majors are finalized
+    const ms = activeMajorId ? myEntry.majorScores[activeMajorId] ?? null : null;
+    const sortedPicks = ms?.pickResults ? [...ms.pickResults].sort((a, b) => a.score - b.score) : [];
     const counting = sortedPicks.slice(0, 3);
     const notCounting = sortedPicks.slice(3);
-    const trackerMajorName = ALL_MAJORS.find(m => m.id === majorId)?.name ?? "";
+    const trackerMajorName = activeMajorId ? ALL_MAJORS.find(m => m.id === activeMajorId)?.name ?? "" : "";
+
+    const majorLabelMap: Record<string, string> = {
+      "us-open": "US OPEN", "british-open": "THE OPEN",
+      "masters": "MASTERS", "pga": "PGA"
+    };
+    const activeMajorLabel = activeMajorId
+      ? (majorLabelMap[activeMajorId] ?? activeMajorId.replace(/-/g, " ").toUpperCase())
+      : null;
 
     return (
       <div style={{
         background: "linear-gradient(135deg, rgba(26,66,41,0.9) 0%, rgba(17,45,28,0.95) 100%)",
         border: "1px solid rgba(77,189,136,0.35)", borderRadius: 12, padding: "20px 24px", marginBottom: 20
       }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16, marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16, marginBottom: ms && sortedPicks.length > 0 ? 16 : 0 }}>
           <div>
             <div style={{ color: "var(--text-muted)", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginBottom: 4 }}>Your Entry</div>
             <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.2rem", color: "#f0faf4", fontWeight: 700 }}>{myEntry.entrantName}</div>
           </div>
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ color: "var(--text-muted)", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Score</div>
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "1.5rem", fontWeight: 700, color: scoreColor(ms.finalScore) }}>
-                {formatScore(ms.finalScore)}
+            {activeMajorLabel && ms && (
+              <div style={{ textAlign: "center" }}>
+                <div style={{ color: "var(--text-muted)", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{activeMajorLabel}</div>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "1.5rem", fontWeight: 700, color: scoreColor(ms.finalScore) }}>
+                  {formatScore(ms.finalScore)}
+                </div>
+                {ms.bonus !== 0 && <div style={{ color: "#facc15", fontSize: "0.7rem", marginTop: 2 }}>{ms.bonusReason}</div>}
               </div>
-              {ms.bonus !== 0 && <div style={{ color: "#facc15", fontSize: "0.7rem", marginTop: 2 }}>{ms.bonusReason}</div>}
+            )}
+            <div style={{ textAlign: "center" }}>
+              <div style={{ color: "var(--text-muted)", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Total</div>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "1.5rem", fontWeight: 700, color: scoreColor(myEntry.totalScore) }}>
+                {formatScore(myEntry.totalScore)}
+              </div>
             </div>
             <div style={{ textAlign: "center" }}>
               <div style={{ color: "var(--text-muted)", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Rank</div>
@@ -248,45 +262,47 @@ export default function LeaderboardPage() {
           </div>
         </div>
 
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 14 }}>
-          <div style={{ color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>
-            {trackerMajorName} Picks — Best 3 Count
-          </div>
-          {counting.map((pr, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: i < 2 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ color: "#c9a84c", fontSize: "0.68rem", fontFamily: "'DM Mono', monospace", width: 18 }}>#{i+1}</span>
-                {pr.pick.isTopPick && <span style={{ fontSize: "0.7rem" }}>⭐</span>}
-                <span style={{ color: "#f0faf4", fontSize: "0.88rem", fontWeight: 500 }}>{pr.pick.golferName}</span>
-                {pr.status === "winner" && <span style={{ fontSize: "0.72rem" }}>🏆</span>}
-              </div>
-              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.85rem", fontWeight: 700, color: scoreColor(pr.score) }}>
-                {pr.status === "cut" ? "CUT" : pr.status === "wd" ? "WD" : pr.status === "missing" ? "--" : formatScore(pr.score)}
-              </span>
+        {ms && sortedPicks.length > 0 && (
+          <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 14 }}>
+            <div style={{ color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>
+              {trackerMajorName} Picks — Best 3 Count
             </div>
-          ))}
-
-          {notCounting.length > 0 && (
-            <>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "8px 0" }}>
-                <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
-                <span style={{ color: "var(--text-muted)", fontSize: "0.62rem", fontFamily: "'DM Mono', monospace" }}>NOT COUNTING</span>
-                <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
-              </div>
-              {notCounting.map((pr, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 0", opacity: 0.4 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {pr.pick.isTopPick && <span style={{ color: "#facc15", fontSize: "0.68rem" }}>*</span>}
-                    <span style={{ color: "#f0faf4", fontSize: "0.83rem", fontStyle: "italic" }}>{pr.pick.golferName}</span>
-                  </div>
-                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.8rem", color: "#6b7280", fontStyle: "italic" }}>
-                    {pr.status === "cut" ? "CUT" : pr.status === "wd" ? "WD" : pr.status === "missing" ? "--" : formatScore(pr.score)}
-                  </span>
+            {counting.map((pr, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: i < 2 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ color: "#c9a84c", fontSize: "0.68rem", fontFamily: "'DM Mono', monospace", width: 18 }}>#{i+1}</span>
+                  {pr.pick.isTopPick && <span style={{ fontSize: "0.7rem" }}>⭐</span>}
+                  <span style={{ color: "#f0faf4", fontSize: "0.88rem", fontWeight: 500 }}>{pr.pick.golferName}</span>
+                  {pr.status === "winner" && <span style={{ fontSize: "0.72rem" }}>🏆</span>}
                 </div>
-              ))}
-            </>
-          )}
-        </div>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.85rem", fontWeight: 700, color: scoreColor(pr.score) }}>
+                  {pr.status === "cut" ? "CUT" : pr.status === "wd" ? "WD" : pr.status === "missing" ? "--" : formatScore(pr.score)}
+                </span>
+              </div>
+            ))}
+
+            {notCounting.length > 0 && (
+              <>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "8px 0" }}>
+                  <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
+                  <span style={{ color: "var(--text-muted)", fontSize: "0.62rem", fontFamily: "'DM Mono', monospace" }}>NOT COUNTING</span>
+                  <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
+                </div>
+                {notCounting.map((pr, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 0", opacity: 0.4 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {pr.pick.isTopPick && <span style={{ color: "#facc15", fontSize: "0.68rem" }}>*</span>}
+                      <span style={{ color: "#f0faf4", fontSize: "0.83rem", fontStyle: "italic" }}>{pr.pick.golferName}</span>
+                    </div>
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.8rem", color: "#6b7280", fontStyle: "italic" }}>
+                      {pr.status === "cut" ? "CUT" : pr.status === "wd" ? "WD" : pr.status === "missing" ? "--" : formatScore(pr.score)}
+                    </span>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
       </div>
     );
   }
