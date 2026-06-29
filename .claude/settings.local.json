@@ -3,7 +3,9 @@
     "allow": [
       "PowerShell(Copy-Item *)",
       "Bash(New-Item *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\matta\\\\fed-golf-majors-2026\\\\node_modules\" -Directory | Where-Object { $_.Name -eq \"dotenv\" -or $_.Name -eq \"ts-node\" })",
+      "PowerShell(New-Item *)"
     ]
   }
 }
