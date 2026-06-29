@@ -10,27 +10,29 @@
     "backfill-uso": "ts-node --project tsconfig.scripts.json src/scripts/backfillMissingUso.ts"
   },
   "dependencies": {
-    "next": "14.2.3",
-    "react": "^18",
-    "react-dom": "^18",
+    "clsx": "^2.1.1",
+    "date-fns": "^3.6.0",
     "firebase": "^10.11.0",
     "firebase-admin": "^12.1.0",
+    "js-cookie": "^3.0.5",
+    "next": "14.2.3",
     "papaparse": "^5.4.1",
-    "date-fns": "^3.6.0",
-    "clsx": "^2.1.1",
-    "js-cookie": "^3.0.5"
+    "react": "^18",
+    "react-dom": "^18"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@opentelemetry/api": "^1.9.1",
+    "@types/js-cookie": "^3.0.6",
     "@types/node": "^20",
+    "@types/papaparse": "^5.3.14",
     "@types/react": "^18",
     "@types/react-dom": "^18",
-    "@types/papaparse": "^5.3.14",
-    "@types/js-cookie": "^3.0.6",
+    "autoprefixer": "^10.0.1",
     "eslint": "^8",
     "eslint-config-next": "14.2.3",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "autoprefixer": "^10.0.1"
+    "ts-node": "^10.9.2",
+    "typescript": "^5"
   }
 }
