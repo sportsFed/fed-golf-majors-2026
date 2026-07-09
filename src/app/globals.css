@@ -5,17 +5,17 @@
 @tailwind utilities;
 
 :root {
-  --fairway-dark: #0a0f1e;
-  --fairway-mid: #0f1a35;
+  --fairway-dark: #0A1628;
+  --fairway-mid: #0F2040;
   --fairway-light: #1a2a52;
-  --green-400: #c9a84c;
-  --green-500: #b8922e;
+  --green-400: #F0C040;
+  --green-500: #d4a800;
   --gold-400: #ffffff;
   --gold-500: #eab308;
   --text-primary: #f5f0e8;
   --text-secondary: #d4b896;
-  --text-muted: #c9a84c;
-  --border: rgba(201,168,76,0.25);
+  --text-muted: #F0C040;
+  --border: rgba(240,192,64,0.25);
 }
 
 * { box-sizing: border-box; }
@@ -38,7 +38,7 @@ body::before {
 h1, h2, h3 { font-family: 'Playfair Display', serif; }
 
 .card {
-  background: rgba(17, 45, 28, 0.8);
+  background: rgba(15, 32, 64, 0.8);
   border: 1px solid var(--border);
   border-radius: 12px;
   backdrop-filter: blur(8px);
@@ -61,8 +61,8 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; }
 .score-over  { color: #6b7280; }
 
 .btn-primary {
-  background: linear-gradient(135deg, #c9a84c, #b8922e);
-  color: #0a0f1e; border: none; border-radius: 8px;
+  background: linear-gradient(135deg, #F0C040, #d4a800);
+  color: #0A1628; border: none; border-radius: 8px;
   padding: 10px 20px; font-family: 'DM Sans', sans-serif;
   font-weight: 500; cursor: pointer; transition: all 0.15s;
 }
@@ -75,7 +75,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; }
   padding: 10px 20px; font-family: 'DM Sans', sans-serif;
   font-weight: 500; cursor: pointer; transition: all 0.15s;
 }
-.btn-secondary:hover { border-color: var(--green-400); background: rgba(77,189,136,0.08); }
+.btn-secondary:hover { border-color: var(--green-400); background: rgba(240,192,64,0.08); }
 
 .btn-gold {
   background: linear-gradient(135deg, #eab308, #ca8a04);
@@ -86,14 +86,14 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; }
 .btn-gold:hover { filter: brightness(1.1); transform: translateY(-1px); }
 
 .input {
-  background: rgba(10, 31, 20, 0.8);
+  background: rgba(10, 22, 40, 0.8);
   border: 1px solid var(--border); border-radius: 8px;
   color: var(--text-primary); padding: 10px 14px;
   font-family: 'DM Sans', sans-serif; font-size: 0.95rem;
   width: 100%; transition: border-color 0.15s;
 }
-.input:focus { outline: none; border-color: var(--green-400); box-shadow: 0 0 0 3px rgba(77,189,136,0.15); }
-.input::placeholder { color: rgba(134,211,176,0.4); }
+.input:focus { outline: none; border-color: var(--green-400); box-shadow: 0 0 0 3px rgba(240,192,64,0.15); }
+.input::placeholder { color: rgba(240,192,64,0.3); }
 
 select.input { appearance: none; cursor: pointer; }
 

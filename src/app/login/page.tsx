@@ -50,18 +50,18 @@ export default function LoginPage() {
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "0 20px", background: "var(--fairway-dark)" }}>
-      <div style={{ position: "fixed", inset: 0, zIndex: 0, background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(26,66,41,0.5) 0%, transparent 70%)" }} />
+      <div style={{ position: "fixed", inset: 0, zIndex: 0, background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(10,22,40,0.8) 0%, transparent 70%)" }} />
       <div style={{ position: "relative", zIndex: 10, width: "100%", maxWidth: 420 }}>
 
         {/* Header with logo */}
         <div style={{ textAlign: "center", marginBottom: 36 }}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
             <Image
-              src="/USOpen2026-Fed.png"
-              alt="Fed Golf Majors - PGA Championship"
+              src="/British26_fed.png"
+              alt="Fed Golf Majors - The Open Championship"
               width={100}
               height={100}
-              style={{ objectFit: "contain", borderRadius: "50%", boxShadow: "0 0 0 2px rgba(255,255,255,0.15), 0 0 12px rgba(255,255,255,0.08)" }}
+              style={{ objectFit: "contain", borderRadius: "50%", boxShadow: "0 0 0 2px rgba(255,255,255,0.12)" }}
             />
           </div>
           <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.9rem", color: "#f0faf4", fontWeight: 700, marginBottom: 6 }}>

@@ -36,7 +36,7 @@ function DeadlineCountdown({ deadline }: { deadline: string }) {
 export default function PicksPage() {
   const router = useRouter();
   const session = getSession();
-  const [activeMajor, setActiveMajor] = useState<MajorId>("us-open");
+  const [activeMajor, setActiveMajor] = useState<MajorId>("british-open");
   const [field, setField] = useState<FieldGolfer[]>([]);
   const [majorInfo, setMajorInfo] = useState<Major | null>(null);
   const [picks, setPicks] = useState<(FieldGolfer | null)[]>([null,null,null,null,null]);
@@ -199,9 +199,9 @@ export default function PicksPage() {
         <div style={{
           borderRadius: 12, padding: "20px 24px", marginBottom: 28,
           background: hasSubmittedThisMajor
-            ? "linear-gradient(135deg, rgba(26,66,41,0.9) 0%, rgba(17,45,28,0.9) 100%)"
+            ? "linear-gradient(135deg, rgba(10,32,64,0.9) 0%, rgba(15,32,64,0.9) 100%)"
             : "linear-gradient(135deg, rgba(60,20,20,0.9) 0%, rgba(40,15,15,0.9) 100%)",
-          border: `1px solid ${hasSubmittedThisMajor ? "rgba(77,189,136,0.4)" : "rgba(239,68,68,0.4)"}`,
+          border: `1px solid ${hasSubmittedThisMajor ? "rgba(240,192,64,0.4)" : "rgba(239,68,68,0.4)"}`,
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
             <div>
@@ -223,7 +223,7 @@ export default function PicksPage() {
                 </div>
               ) : hasSubmittedThisMajor ? (
                 <>
-                  <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(77,189,136,0.15)", border: "1px solid rgba(77,189,136,0.4)", borderRadius: 20, padding: "6px 14px", marginBottom: 8 }}>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(240,192,64,0.15)", border: "1px solid rgba(240,192,64,0.4)", borderRadius: 20, padding: "6px 14px", marginBottom: 8 }}>
                     <span style={{ color: "var(--green-400)", fontSize: "0.85rem", fontWeight: 600 }}>✓ Picks Submitted</span>
                   </div>
                   {deadlineFormatted && (
@@ -266,8 +266,8 @@ export default function PicksPage() {
                 <button key={m.id} onClick={() => setActiveMajor(m.id)} style={{
                   display: "flex", alignItems: "center", gap: 6,
                   padding: "5px 12px", borderRadius: 16,
-                  border: `1px solid ${isActive ? (hasPicks ? "rgba(77,189,136,0.5)" : "rgba(239,68,68,0.5)") : "rgba(255,255,255,0.1)"}`,
-                  background: isActive ? (hasPicks ? "rgba(77,189,136,0.1)" : "rgba(239,68,68,0.1)") : "transparent",
+                  border: `1px solid ${isActive ? (hasPicks ? "rgba(240,192,64,0.5)" : "rgba(239,68,68,0.5)") : "rgba(255,255,255,0.1)"}`,
+                  background: isActive ? (hasPicks ? "rgba(240,192,64,0.1)" : "rgba(239,68,68,0.1)") : "transparent",
                   cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem",
                   color: isActive ? (hasPicks ? "var(--green-400)" : "#f87171") : "var(--text-muted)"
                 }}>
@@ -278,6 +278,74 @@ export default function PicksPage() {
               );
             })}
           </div>
+
+          {/* Prior finalized major picks summary */}
+          {myStandings && (() => {
+            const priorMajors: { id: string; label: string }[] = [
+              { id: "masters", label: "MASTERS PICKS" },
+              { id: "pga", label: "PGA PICKS" },
+              { id: "us-open", label: "US OPEN PICKS" },
+            ];
+            const priorWithData = priorMajors.filter(m => myStandings.majorScores[m.id as MajorId]);
+            if (priorWithData.length === 0) return null;
+            return (
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                <div style={{ color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginBottom: 10 }}>Prior Majors</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  {priorWithData.map(({ id, label }) => {
+                    const ms = myStandings.majorScores[id as MajorId];
+                    if (!ms) return null;
+                    const sorted = ms.pickResults ? [...ms.pickResults].sort((a, b) => a.score - b.score) : [];
+                    const counting = sorted.slice(0, 3);
+                    const notCounting = sorted.slice(3);
+                    const scoreStr = ms.finalScore === 0 ? "E" : ms.finalScore > 0 ? `+${ms.finalScore}` : `${ms.finalScore}`;
+                    return (
+                      <div key={id} style={{ opacity: 0.65, fontSize: "0.78rem" }}>
+                        <div style={{ color: "var(--text-muted)", fontWeight: 600, marginBottom: 5, fontFamily: "'DM Mono', monospace" }}>
+                          {label} — <span style={{ color: ms.finalScore < 0 ? "#e8c96a" : ms.finalScore === 0 ? "#f0faf4" : "#6b7280" }}>{scoreStr}</span>
+                        </div>
+                        {ms.pickResults.length === 0 ? (
+                          <div style={{ color: "#6b7280", fontStyle: "italic" }}>No picks submitted — penalty applied</div>
+                        ) : (
+                          <>
+                            {counting.map((pr, i) => (
+                              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
+                                <span style={{ color: "#f0faf4" }}>
+                                  <span style={{ color: "var(--text-muted)", fontFamily: "'DM Mono', monospace", marginRight: 6 }}>#{i+1}</span>
+                                  {pr.pick.isTopPick && <span style={{ fontSize: "0.65rem" }}>⭐ </span>}
+                                  {pr.pick.golferName}
+                                </span>
+                                <span style={{ fontFamily: "'DM Mono', monospace", color: pr.score < 0 ? "#e8c96a" : pr.score === 0 ? "#f0faf4" : "#6b7280" }}>
+                                  {pr.status === "cut" ? "CUT" : pr.status === "wd" ? "WD" : pr.status === "missing" ? "--" : formatScore(pr.score)}
+                                </span>
+                              </div>
+                            ))}
+                            {notCounting.length > 0 && (
+                              <>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "5px 0" }}>
+                                  <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
+                                  <span style={{ color: "var(--text-muted)", fontSize: "0.6rem", fontFamily: "'DM Mono', monospace" }}>NOT COUNTING</span>
+                                  <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
+                                </div>
+                                {notCounting.map((pr, i) => (
+                                  <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", opacity: 0.7 }}>
+                                    <span style={{ color: "#f0faf4", fontStyle: "italic" }}>{pr.pick.golferName}</span>
+                                    <span style={{ fontFamily: "'DM Mono', monospace", color: "#6b7280", fontStyle: "italic" }}>
+                                      {pr.status === "cut" ? "CUT" : pr.status === "wd" ? "WD" : pr.status === "missing" ? "--" : formatScore(pr.score)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {loading ? (
@@ -384,7 +452,7 @@ export default function PicksPage() {
                       style={{
                         padding: "10px 14px", borderRadius: 8, cursor: locked?"default":"pointer",
                         border: `1px solid ${activeSlot===i?"var(--green-400)":pick?(i===0?"rgba(250,204,21,0.35)":"var(--border)"):"rgba(255,255,255,0.08)"}`,
-                        background: activeSlot===i?"rgba(77,189,136,0.07)":pick?"rgba(17,45,28,0.8)":"rgba(10,31,20,0.3)",
+                        background: activeSlot===i?"rgba(240,192,64,0.07)":pick?"rgba(15,32,64,0.8)":"rgba(10,22,40,0.3)",
                         display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 48
                       }}>
                       {pick ? (
@@ -452,8 +520,8 @@ export default function PicksPage() {
                         onClick={() => !unavail && !locked && activeSlot!==null && selectGolfer(g)}
                         style={{
                           padding: "8px 12px", borderRadius: 7,
-                          border: `1px solid ${isSel?"rgba(77,189,136,0.4)":"var(--border)"}`,
-                          background: isSel?"rgba(77,189,136,0.07)":unavail?"transparent":"rgba(17,45,28,0.4)",
+                          border: `1px solid ${isSel?"rgba(240,192,64,0.4)":"var(--border)"}`,
+                          background: isSel?"rgba(240,192,64,0.07)":unavail?"transparent":"rgba(15,32,64,0.4)",
                           opacity: unavail?0.35:1,
                           cursor: unavail||locked||activeSlot===null?"default":"pointer",
                           display: "flex", alignItems: "center", justifyContent: "space-between"

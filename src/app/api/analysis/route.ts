@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
       position: string;
     }> = {};
 
-    let totalEntries = 0;
+    const totalEntries = entriesSnap.docs.length;
     let entriesWithPicks = 0;
     let totalPicksMade = 0;
 
@@ -51,7 +51,6 @@ export async function GET(req: NextRequest) {
       const majorEntry = entry.majors?.[majorId];
       if (!majorEntry?.picks?.length) continue;
 
-      totalEntries++;
       entriesWithPicks++;
       totalPicksMade += majorEntry.picks.length;
 
@@ -96,9 +95,12 @@ export async function GET(req: NextRequest) {
     const golferArray = Object.values(golferStats).sort((a, b) => b.totalPicks - a.totalPicks);
 
     // Summary stats
-    const totalPicksAcrossPool = golferArray.reduce((s, g) => s + g.totalPicks, 0);
+    // denominator = total picks submitted (entriesWithPicks × 5), same as summing all golfer pick counts
+    const totalPicksAcrossPool = totalPicksMade;
     const cutPicks = golferArray.reduce((s, g) => s + g.cutPicks, 0);
     const uniqueGolfers = golferArray.length;
+
+    console.log(`[analysis] majorId=${majorId} entries=${totalEntries} withPicks=${entriesWithPicks} totalPicks=${totalPicksAcrossPool} cutPicks=${cutPicks} cutRate=${totalPicksAcrossPool > 0 ? Math.round((cutPicks / totalPicksAcrossPool) * 100) : 0}%`);
     const mostPicked = golferArray[0];
     const mostTopPicked = [...golferArray].sort((a, b) => b.topPickCount - a.topPickCount)[0];
     const mostCounting = [...golferArray].sort((a, b) => b.countingPicks - a.countingPicks)[0];
@@ -114,6 +116,7 @@ export async function GET(req: NextRequest) {
       totalEntries,
       entriesWithPicks,
       totalPicksAcrossPool,
+      pickDeadline: major?.pickDeadline ?? null,
       uniqueGolfers,
       cutPickCount: cutPicks,
       cutPickRate: totalPicksAcrossPool > 0 ? Math.round((cutPicks / totalPicksAcrossPool) * 100) : 0,

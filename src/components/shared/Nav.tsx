@@ -17,11 +17,11 @@ export default function Nav() {
   ];
 
   return (
-    <nav style={{ background: "rgba(10,31,20,0.95)", borderBottom: "1px solid var(--border)", backdropFilter: "blur(12px)", position: "sticky", top: 0, zIndex: 50 }}>
+    <nav style={{ background: "rgba(10,22,40,0.95)", borderBottom: "3px solid #DC2626", backdropFilter: "blur(12px)", position: "sticky", top: 0, zIndex: 50 }}>
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 12px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 56, flexWrap: "nowrap", overflow: "hidden" }}>
         <button onClick={() => router.push("/leaderboard")}
           style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", cursor: "pointer", padding: 0, flexShrink: 0 }}>
-          <Image src="/USOpen2026-Fed.png" alt="Fed Golf Majors - PGA Championship" width={34} height={34} style={{ objectFit: "contain", borderRadius: "50%", boxShadow: "0 0 0 2px rgba(255,255,255,0.15), 0 0 12px rgba(255,255,255,0.08)" }} />
+          <Image src="/British26_fed.png" alt="Fed Golf Majors - The Open Championship" width={34} height={34} style={{ objectFit: "contain", borderRadius: "50%", boxShadow: "0 0 0 2px rgba(255,255,255,0.12)" }} />
           <span className="nav-wordmark" style={{ fontFamily: "'Playfair Display', serif", color: "#f0faf4", fontWeight: 700, fontSize: "0.95rem", letterSpacing: "0.01em" }}>
             Fed Golf Majors <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>2026</span>
           </span>
@@ -31,7 +31,7 @@ export default function Nav() {
             <button key={link.href} onClick={() => router.push(link.href)} title={link.title}
               className={link.mobileLabel === null ? "nav-hide-mobile" : undefined}
               style={{
-                background: pathname.startsWith(link.href) ? "rgba(77,189,136,0.1)" : "transparent",
+                background: pathname.startsWith(link.href) ? "rgba(240,192,64,0.1)" : "transparent",
                 border: "none", borderRadius: 6,
                 color: pathname.startsWith(link.href) ? "var(--green-400)" : "var(--text-muted)",
                 padding: link.href === "/admin" ? "6px 10px" : "6px 12px", fontFamily: "'DM Sans', sans-serif",

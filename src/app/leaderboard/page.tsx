@@ -165,8 +165,8 @@ export default function LeaderboardPage() {
     const submitted = myPicksSubmitted;
     return (
       <div style={{
-        background: submitted ? "rgba(17,45,28,0.85)" : "rgba(40,15,15,0.85)",
-        border: `1px solid ${submitted ? "rgba(77,189,136,0.35)" : "rgba(239,68,68,0.35)"}`,
+        background: submitted ? "rgba(15,32,64,0.85)" : "rgba(40,15,15,0.85)",
+        border: `1px solid ${submitted ? "rgba(240,192,64,0.35)" : "rgba(239,68,68,0.35)"}`,
         borderRadius: 12, padding: "20px 24px", marginBottom: 20
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
@@ -175,7 +175,7 @@ export default function LeaderboardPage() {
             <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.25rem", color: "#f0faf4", fontWeight: 700, marginBottom: 8 }}>
               {session.entrantName}
             </div>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: submitted ? "rgba(77,189,136,0.15)" : "rgba(239,68,68,0.15)", border: `1px solid ${submitted ? "rgba(77,189,136,0.35)" : "rgba(239,68,68,0.35)"}`, borderRadius: 6, padding: "3px 10px", marginBottom: 8 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: submitted ? "rgba(240,192,64,0.15)" : "rgba(239,68,68,0.15)", border: `1px solid ${submitted ? "rgba(240,192,64,0.35)" : "rgba(239,68,68,0.35)"}`, borderRadius: 6, padding: "3px 10px", marginBottom: 8 }}>
               <span style={{ color: submitted ? "var(--green-400)" : "#f87171", fontSize: "0.78rem", fontWeight: 700 }}>
                 {submitted ? "Picks Submitted" : "Picks Not Submitted"}
               </span>
@@ -228,13 +228,33 @@ export default function LeaderboardPage() {
 
     return (
       <div style={{
-        background: "linear-gradient(135deg, rgba(26,66,41,0.9) 0%, rgba(17,45,28,0.95) 100%)",
-        border: "1px solid rgba(77,189,136,0.35)", borderRadius: 12, padding: "20px 24px", marginBottom: 20
+        background: "linear-gradient(135deg, rgba(10,32,64,0.9) 0%, rgba(15,32,64,0.95) 100%)",
+        border: "1px solid rgba(240,192,64,0.35)", borderRadius: 12, padding: "20px 24px", marginBottom: 20
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16, marginBottom: ms && sortedPicks.length > 0 ? 16 : 0 }}>
           <div>
             <div style={{ color: "var(--text-muted)", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginBottom: 4 }}>Your Entry</div>
             <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.2rem", color: "#f0faf4", fontWeight: 700 }}>{myEntry.entrantName}</div>
+            {/* All major scores summary */}
+            <div style={{ display: "flex", gap: 14, marginTop: 6, flexWrap: "wrap" }}>
+              {[
+                { id: "masters" as const, abbr: "MST" },
+                { id: "pga" as const, abbr: "PGA" },
+                { id: "us-open" as const, abbr: "USO" },
+                { id: "british-open" as const, abbr: "OPEN" },
+              ].map(({ id, abbr }) => {
+                const mScore = myEntry.majorScores[id];
+                const val = mScore?.finalScore;
+                return (
+                  <span key={id} style={{ fontSize: "0.72rem", fontFamily: "'DM Mono', monospace", color: "var(--text-muted)" }}>
+                    {abbr}:{" "}
+                    <span style={{ color: val !== undefined ? scoreColor(val) : "var(--border)", fontWeight: 600 }}>
+                      {val !== undefined ? formatScore(val) : "--"}
+                    </span>
+                  </span>
+                );
+              })}
+            </div>
           </div>
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
             {activeMajorLabel && ms && (
@@ -349,7 +369,7 @@ export default function LeaderboardPage() {
               <button key={t.id} onClick={() => setViewMajor(t.id as any)} style={{
                 padding: "6px 16px", borderRadius: 20,
                 border: `1px solid ${viewMajor === t.id ? "var(--green-400)" : "var(--border)"}`,
-                background: viewMajor === t.id ? "rgba(77,189,136,0.12)" : "transparent",
+                background: viewMajor === t.id ? "rgba(240,192,64,0.12)" : "transparent",
                 color: viewMajor === t.id ? "var(--green-400)" : "var(--text-muted)",
                 fontFamily: "'DM Sans', sans-serif", fontSize: "0.83rem",
                 fontWeight: viewMajor === t.id ? 600 : 400, cursor: "pointer"
@@ -360,7 +380,7 @@ export default function LeaderboardPage() {
 
         {/* Legend */}
         {tournamentStarted && (
-          <div style={{ background: "rgba(17,45,28,0.5)", border: "1px solid var(--border)", borderRadius: 8, padding: "9px 16px", marginBottom: 14, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ background: "rgba(15,32,64,0.5)", border: "1px solid var(--border)", borderRadius: 8, padding: "9px 16px", marginBottom: 14, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
             <span style={{ color: "var(--text-muted)", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600 }}>Key</span>
             <span style={{ color: "var(--text-secondary)", fontSize: "0.76rem" }}>Lower = better · Best 3-of-5 count</span>
             {viewMajor === "overall"
@@ -427,7 +447,7 @@ export default function LeaderboardPage() {
                     style={{
                       display: "grid", gridTemplateColumns: gridCols, columnGap: 0,
                       padding: "7px 6px", minHeight: 40, alignItems: "center", cursor: "pointer",
-                      background: isMe ? "rgba(201,168,76,0.08)" : "rgba(17,45,28,0.5)",
+                      background: isMe ? "rgba(201,168,76,0.08)" : "rgba(15,32,64,0.5)",
                       border: `1px solid ${isMe ? "rgba(201,168,76,0.3)" : "var(--border)"}`,
                       borderRadius: isExpanded ? "10px 10px 0 0" : 10
                     }}
@@ -477,7 +497,7 @@ export default function LeaderboardPage() {
 
                   {/* Expanded picks — finalized majors only, list format */}
                   {isExpanded && (
-                    <div style={{ background: "rgba(10,31,20,0.95)", border: "1px solid var(--border)", borderTop: "none", borderRadius: "0 0 10px 10px", padding: "14px 18px" }}>
+                    <div style={{ background: "rgba(10,22,40,0.95)", border: "1px solid var(--border)", borderTop: "none", borderRadius: "0 0 10px 10px", padding: "14px 18px" }}>
                       {expandedMajors.map((m, i) => {
                         const ms = entry.majorScores[m.id];
                         const sectionStyle = { marginTop: i > 0 ? 14 : 0, paddingTop: i > 0 ? 14 : 0, borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none" };
@@ -567,7 +587,7 @@ export default function LeaderboardPage() {
               const isMe = entry.entryId === session?.entryId;
               const hasPicks = isMe ? myPicksSubmitted : entry.completedMajors > 0;
               return (
-                <div key={entry.entryId} className="leaderboard-row" style={{ animationDelay: `${idx * 0.02}s`, display: "grid", gridTemplateColumns: gridCols, padding: "11px 16px", alignItems: "center", background: isMe ? "rgba(201,168,76,0.08)" : "rgba(17,45,28,0.5)", border: `1px solid ${isMe ? "rgba(201,168,76,0.3)" : "var(--border)"}`, borderRadius: 10 }}>
+                <div key={entry.entryId} className="leaderboard-row" style={{ animationDelay: `${idx * 0.02}s`, display: "grid", gridTemplateColumns: gridCols, padding: "11px 16px", alignItems: "center", background: isMe ? "rgba(201,168,76,0.08)" : "rgba(15,32,64,0.5)", border: `1px solid ${isMe ? "rgba(201,168,76,0.3)" : "var(--border)"}`, borderRadius: 10 }}>
                   <span style={{ fontFamily: "'DM Mono', monospace", color: "var(--text-muted)", fontSize: "0.88rem" }}>{idx + 1}</span>
                   <span style={{ color: isMe ? "var(--green-400)" : "#f0faf4", fontSize: "0.9rem", fontWeight: isMe ? 600 : 400, display: "flex", alignItems: "center", gap: 5 }}>
                     {entry.entrantName}
