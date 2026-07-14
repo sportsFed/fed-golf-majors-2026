@@ -8,7 +8,9 @@
       "PowerShell(New-Item *)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\matta\\\\fed-golf-majors-2026\" -Recurse -Force)",
       "Bash(select-object FullName, PSIsContainer)",
-      "PowerShell(head *)"
+      "PowerShell(head *)",
+      "Bash(git check-ignore *)",
+      "Bash(git checkout *)"
     ]
   }
 }

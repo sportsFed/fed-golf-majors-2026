@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "backfill-uso": "ts-node --project tsconfig.scripts.json src/scripts/backfillMissingUso.ts",
-    "init-british-open": "ts-node --project tsconfig.scripts.json src/scripts/initBritishOpen.ts"
+    "init-british-open": "ts-node --project tsconfig.scripts.json src/scripts/initBritishOpen.ts",
+    "add-late-entries": "ts-node --project tsconfig.scripts.json src/scripts/addBritishOpenLateEntries.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",
