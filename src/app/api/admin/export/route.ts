@@ -24,10 +24,10 @@ export async function GET(req: NextRequest) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  // Version gate — callers should use ?v=3
+  // Version gate — callers should use ?v=4
   const version = req.nextUrl.searchParams.get("v");
-  if (version === "2") {
-    return new Response("Use v=3 for the updated export format", { status: 400 });
+  if (version === "3") {
+    return new Response("Use v=4 for the updated export format", { status: 400 });
   }
 
   try {
@@ -50,6 +50,12 @@ export async function GET(req: NextRequest) {
         : usOpenPicksList
             .map((p: any) => p.isTopPick ? `${p.golferName} (TP)` : p.golferName)
             .join(", ");
+      const britishOpenPicksList = ((majorsData as any)["british-open"]?.picks ?? []) as any[];
+      const britishOpenPicks = britishOpenPicksList.length === 0
+        ? ""
+        : britishOpenPicksList
+            .map((p: any) => p.isTopPick ? `${p.golferName} (TP)` : p.golferName)
+            .join(", ");
 
       const mastersScore = s.majorScores?.["masters"]?.finalScore;
       const pgaScore = s.majorScores?.["pga"]?.finalScore;
@@ -64,6 +70,7 @@ export async function GET(req: NextRequest) {
         usOpenScore: usOpenScore !== undefined && usOpenScore !== null ? usOpenScore : null,
         totalScore: s.totalScore !== undefined && s.totalScore !== null ? s.totalScore : null,
         usOpenPicks,
+        britishOpenPicks,
         mastersPicks,
         pgaPicks,
         winnersHit: s.totalWinnersHit,
@@ -71,12 +78,13 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // Columns: Rank | Name | Email | Masters | PGA | US Open | Season Total | US Open Picks | ...
+    // Columns: Rank | Name | Email | Masters | PGA | US Open | Season Total | US Open Picks | British Open Picks | ...
     const headers = [
       "Rank", "Name", "Email",
       "Masters Score", "PGA Score", "US Open Score",
       "Season Total",
       "US Open Picks",
+      "British Open Picks",
       "Masters Picks", "PGA Picks",
       "Winners Hit", "Top Pick Wins"
     ];
@@ -90,6 +98,7 @@ export async function GET(req: NextRequest) {
       csvField(formatScore(row.usOpenScore)),
       csvField(formatScore(row.totalScore)),
       csvField(row.usOpenPicks),
+      csvField(row.britishOpenPicks),
       csvField(row.mastersPicks ? `"${row.mastersPicks}"` : ""),
       csvField(row.pgaPicks ? `"${row.pgaPicks}"` : ""),
       csvField(row.winnersHit),
