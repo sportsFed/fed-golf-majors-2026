@@ -116,3 +116,16 @@ select.input { appearance: none; cursor: pointer; }
   .nav-label-desktop { display: none; }
   .nav-label-mobile { display: inline; }
 }
+
+/* Responsive leaderboard */
+.lb-name-abbr { display: none; }
+.lb-label-mobile { display: none; }
+
+@media (max-width: 768px) {
+  .lb-hide-mobile { display: none !important; }
+  .lb-name-full { display: none !important; }
+  .lb-name-abbr { display: inline !important; }
+  .lb-label-desktop { display: none; }
+  .lb-label-mobile { display: inline; }
+  .lb-scored-grid { grid-template-columns: 28px 1fr 52px 60px !important; }
+}

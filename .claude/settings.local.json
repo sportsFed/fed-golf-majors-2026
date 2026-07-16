@@ -14,7 +14,8 @@
       "Bash(npx ts-node *)",
       "Bash(TS_NODE_PROJECT=tsconfig.scripts.json npx ts-node -r tsconfig-paths/register src/scripts/testComputeStandings.ts)",
       "Bash(TS_NODE_TRANSPILE_ONLY=true TS_NODE_PROJECT=tsconfig.scripts.json npx ts-node -r tsconfig-paths/register --compiler-options \"{\\\\\"baseUrl\\\\\":\\\\\".\\\\\"}\" src/scripts/testComputeStandings.ts)",
-      "Bash(TS_NODE_TRANSPILE_ONLY=true TS_NODE_PROJECT=tsconfig.scripts.run.json npx ts-node -r tsconfig-paths/register src/scripts/testComputeStandings.ts)"
+      "Bash(TS_NODE_TRANSPILE_ONLY=true TS_NODE_PROJECT=tsconfig.scripts.run.json npx ts-node -r tsconfig-paths/register src/scripts/testComputeStandings.ts)",
+      "Bash(npx next *)"
     ]
   }
 }
