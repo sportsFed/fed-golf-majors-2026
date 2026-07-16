@@ -24,10 +24,10 @@ export async function GET(req: NextRequest) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  // Version gate — callers should use ?v=4
+  // Version gate — callers should use ?v=5
   const version = req.nextUrl.searchParams.get("v");
-  if (version === "3") {
-    return new Response("Use v=4 for the updated export format", { status: 400 });
+  if (version === "3" || version === "4") {
+    return new Response("Use v=5 for the updated export format", { status: 400 });
   }
 
   try {
@@ -60,6 +60,7 @@ export async function GET(req: NextRequest) {
       const mastersScore = s.majorScores?.["masters"]?.finalScore;
       const pgaScore = s.majorScores?.["pga"]?.finalScore;
       const usOpenScore = s.majorScores?.["us-open"]?.finalScore;
+      const britishOpenScore = s.majorScores?.["british-open"]?.finalScore;
 
       return {
         rank: s.rank,
@@ -68,6 +69,7 @@ export async function GET(req: NextRequest) {
         mastersScore: mastersScore !== undefined && mastersScore !== null ? mastersScore : null,
         pgaScore: pgaScore !== undefined && pgaScore !== null ? pgaScore : null,
         usOpenScore: usOpenScore !== undefined && usOpenScore !== null ? usOpenScore : null,
+        britishOpenScore: britishOpenScore !== undefined && britishOpenScore !== null ? britishOpenScore : null,
         totalScore: s.totalScore !== undefined && s.totalScore !== null ? s.totalScore : null,
         usOpenPicks,
         britishOpenPicks,
@@ -78,10 +80,10 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // Columns: Rank | Name | Email | Masters | PGA | US Open | Season Total | US Open Picks | British Open Picks | ...
+    // Columns: Rank | Name | Email | Masters | PGA | US Open | British Open | Season Total | US Open Picks | British Open Picks | ...
     const headers = [
       "Rank", "Name", "Email",
-      "Masters Score", "PGA Score", "US Open Score",
+      "Masters Score", "PGA Score", "US Open Score", "British Open Score",
       "Season Total",
       "US Open Picks",
       "British Open Picks",
@@ -96,6 +98,7 @@ export async function GET(req: NextRequest) {
       csvField(formatScore(row.mastersScore)),
       csvField(formatScore(row.pgaScore)),
       csvField(formatScore(row.usOpenScore)),
+      csvField(formatScore(row.britishOpenScore)),
       csvField(formatScore(row.totalScore)),
       csvField(row.usOpenPicks),
       csvField(row.britishOpenPicks),
