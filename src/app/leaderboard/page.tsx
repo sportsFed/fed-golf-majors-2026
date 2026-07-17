@@ -13,7 +13,7 @@ const ALL_MAJORS: { id: MajorId; name: string; short: string; abbr: string }[] =
   { id: "british-open", name: "The Open Championship", short: "British",     abbr: "BOC" }
 ];
 
-const EXPANDED_MAJOR_ORDER: MajorId[] = ["us-open", "pga", "masters"];
+const EXPANDED_MAJOR_ORDER: MajorId[] = ["british-open", "us-open", "pga", "masters"];
 
 function abbrevName(name: string): string {
   const parts = name.trim().split(" ");
@@ -248,17 +248,17 @@ export default function LeaderboardPage() {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 18, flexShrink: 0 }}>
               {activeMajorLabel && ms && (
-                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.95rem", fontWeight: 700, color: scoreColor(ms.finalScore) }}>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "1.15rem", fontWeight: 700, color: scoreColor(ms.finalScore) }}>
                   <span style={{ color: "var(--text-muted)", fontSize: "0.62rem", fontWeight: 600, marginRight: 4 }}>OPEN</span>
                   {formatScore(ms.finalScore)}
                 </div>
               )}
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.95rem", fontWeight: 700, color: scoreColor(myEntry.totalScore) }}>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "1.15rem", fontWeight: 700, color: scoreColor(myEntry.totalScore) }}>
                 <span style={{ color: "var(--text-muted)", fontSize: "0.62rem", fontWeight: 600, marginRight: 4 }}>TOTAL</span>
                 {formatScore(myEntry.totalScore)}
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.95rem", fontWeight: 700, color: "#facc15" }}>#{myEntry.rank}</div>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "1.15rem", fontWeight: 700, color: "#facc15" }}>#{myEntry.rank}</div>
                 <div style={{ color: "var(--text-muted)", fontSize: "0.62rem" }}>of {standings.length}</div>
               </div>
             </div>
@@ -266,17 +266,18 @@ export default function LeaderboardPage() {
           {ms?.bonus !== 0 && ms && <div style={{ color: "#facc15", fontSize: "0.7rem", marginTop: 2, textAlign: "right" }}>{ms.bonusReason}</div>}
 
           {/* All major scores summary */}
-          <div style={{ display: "flex", gap: 14, marginTop: 6, flexWrap: "wrap", opacity: 0.65 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", marginTop: 6, opacity: 0.65 }}>
             {[
               { id: "masters" as const, abbr: "MST" },
               { id: "pga" as const, abbr: "PGA" },
               { id: "us-open" as const, abbr: "USO" },
               { id: "british-open" as const, abbr: "OPEN" },
-            ].map(({ id, abbr }) => {
+            ].map(({ id, abbr }, i) => {
               const mScore = myEntry.majorScores[id];
               const val = mScore?.finalScore;
               return (
                 <span key={id} style={{ fontSize: "0.7rem", fontFamily: "'DM Mono', monospace", color: "var(--text-muted)" }}>
+                  {i > 0 && " | "}
                   {abbr}:{" "}
                   <span style={{ color: val !== undefined ? scoreColor(val) : "var(--border)", fontWeight: 600 }}>
                     {val !== undefined ? formatScore(val) : "--"}

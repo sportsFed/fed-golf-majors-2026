@@ -7,11 +7,25 @@ import { formatScore } from "@/lib/scoring";
 import type { EntryStandings, MajorId } from "@/types";
 
 const MAJORS: { id: MajorId; name: string }[] = [
-  { id: "masters", name: "The Masters" },
-  { id: "pga", name: "PGA Championship" },
+  { id: "british-open", name: "The Open Championship" },
   { id: "us-open", name: "U.S. Open" },
-  { id: "british-open", name: "The Open Championship" }
+  { id: "pga", name: "PGA Championship" },
+  { id: "masters", name: "The Masters" }
 ];
+
+function lastName(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  return parts[parts.length - 1].toLowerCase();
+}
+
+function sortPicksForDisplay<T extends { score: number; status: string }>(picks: T[]): T[] {
+  return [...picks].sort((a, b) => {
+    const aBad = a.status === "cut" || a.status === "wd";
+    const bBad = b.status === "cut" || b.status === "wd";
+    if (aBad !== bBad) return aBad ? 1 : -1;
+    return a.score - b.score;
+  });
+}
 
 function H2HContent() {
   const router = useRouter();
@@ -39,6 +53,8 @@ function H2HContent() {
   const standingA = allEntries.find(e => e.entryId === entryA);
   const standingB = allEntries.find(e => e.entryId === entryB);
 
+  const sortedEntries = [...allEntries].sort((a, b) => lastName(a.entrantName).localeCompare(lastName(b.entrantName)));
+
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 20px" }}>
       <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "2rem", color: "#f0faf4", marginBottom: 6 }}>Head to Head</h1>
@@ -49,7 +65,7 @@ function H2HContent() {
           <label style={{ display: "block", color: "var(--text-muted)", fontSize: "0.72rem", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.08em" }}>Entry A</label>
           <select className="input" value={entryA} onChange={e => setEntryA(e.target.value)}>
             <option value="">Select entry…</option>
-            {allEntries.map(e => <option key={e.entryId} value={e.entryId}>{e.entrantName}{e.entryId === session?.entryId ? " (you)" : ""}</option>)}
+            {sortedEntries.map(e => <option key={e.entryId} value={e.entryId}>{e.entrantName}{e.entryId === session?.entryId ? " (you)" : ""}</option>)}
           </select>
         </div>
         <div style={{ color: "var(--text-muted)", fontFamily: "'Playfair Display', serif", fontSize: "1.3rem", paddingTop: 22, textAlign: "center" }}>vs</div>
@@ -57,7 +73,7 @@ function H2HContent() {
           <label style={{ display: "block", color: "var(--text-muted)", fontSize: "0.72rem", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.08em" }}>Entry B</label>
           <select className="input" value={entryB} onChange={e => setEntryB(e.target.value)}>
             <option value="">Select entry…</option>
-            {allEntries.filter(e => e.entryId !== entryA).map(e => <option key={e.entryId} value={e.entryId}>{e.entrantName}</option>)}
+            {sortedEntries.filter(e => e.entryId !== entryA).map(e => <option key={e.entryId} value={e.entryId}>{e.entrantName}</option>)}
           </select>
         </div>
       </div>
@@ -95,13 +111,15 @@ function H2HContent() {
             if (!msA && !msB) return null;
             const sA = msA?.finalScore ?? null;
             const sB = msB?.finalScore ?? null;
+            const pickResultsA = msA?.pickResults ? sortPicksForDisplay(msA.pickResults) : [];
+            const pickResultsB = msB?.pickResults ? sortPicksForDisplay(msB.pickResults) : [];
             return (
               <div key={m.id} className="card" style={{ padding: "16px 20px", marginBottom: 10 }}>
                 <div style={{ color: "var(--text-muted)", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12, fontWeight: 600 }}>{m.name}</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 20px 1fr", gap: 12 }}>
                   <div>
                     {sA !== null && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "1.1rem", fontWeight: 700, color: sA !== null && sB !== null && sA <= sB ? "#facc15" : "#f87171", marginBottom: 8 }}>{formatScore(sA)}</div>}
-                    {msA?.pickResults.map((pr, i) => (
+                    {pickResultsA.map((pr, i) => (
                       <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3, opacity: pr.counted ? 1 : 0.4 }}>
                         {pr.pick.isTopPick && <span style={{ fontSize: "0.62rem", color: "#facc15" }}>⭐</span>}
                         <span style={{ color: pr.counted ? "#f0faf4" : "var(--text-muted)", fontSize: "0.8rem", flex: 1 }}>{pr.pick.golferName}</span>
@@ -116,7 +134,7 @@ function H2HContent() {
                   <div style={{ color: "var(--border)", textAlign: "center" }}>|</div>
                   <div>
                     {sB !== null && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "1.1rem", fontWeight: 700, color: sB !== null && sA !== null && sB <= sA ? "#facc15" : "#f87171", marginBottom: 8 }}>{formatScore(sB)}</div>}
-                    {msB?.pickResults.map((pr, i) => (
+                    {pickResultsB.map((pr, i) => (
                       <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3, opacity: pr.counted ? 1 : 0.4 }}>
                         {pr.pick.isTopPick && <span style={{ fontSize: "0.62rem", color: "#facc15" }}>⭐</span>}
                         <span style={{ color: pr.counted ? "#f0faf4" : "var(--text-muted)", fontSize: "0.8rem", flex: 1 }}>{pr.pick.golferName}</span>

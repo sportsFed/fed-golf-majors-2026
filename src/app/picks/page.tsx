@@ -65,6 +65,7 @@ export default function PicksPage() {
   const [error, setError] = useState("");
   const [locked, setLocked] = useState(false);
   const [myStandings, setMyStandings] = useState<EntryStandings | null>(null);
+  const [isEditingPicks, setIsEditingPicks] = useState(true);
 
   useEffect(() => {
     if (!session) { router.push("/login"); return; }
@@ -123,6 +124,7 @@ export default function PicksPage() {
 
       setPicks(loadedPicks);
       setSaved(myMajorPicks.length > 0);
+      setIsEditingPicks(myMajorPicks.length === 0);
 
       // Track golfer IDs used in other majors
       const used: string[] = [];
@@ -299,68 +301,6 @@ export default function PicksPage() {
               );
             })}
           </div>
-
-          {/* Prior finalized major picks — 3-column grid */}
-          {myStandings && (() => {
-            const priorMajors: { id: string; short: string }[] = [
-              { id: "masters",  short: "MASTERS" },
-              { id: "pga",      short: "PGA" },
-              { id: "us-open",  short: "USO" },
-            ];
-            const priorWithData = priorMajors.filter(m => myStandings.majorScores[m.id as MajorId]);
-            if (priorWithData.length === 0) return null;
-            return (
-              <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-                <div style={{ color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginBottom: 10 }}>Prior Majors</div>
-                <div style={{ display: "grid", gridTemplateColumns: `repeat(${priorWithData.length}, 1fr)` }}>
-                  {priorWithData.map(({ id, short }, colIdx) => {
-                    const ms = myStandings.majorScores[id as MajorId];
-                    if (!ms) return null;
-                    const sorted = ms.pickResults ? [...ms.pickResults].sort((a, b) => a.score - b.score) : [];
-                    const scoreStr = ms.finalScore === 0 ? "E" : ms.finalScore > 0 ? `+${ms.finalScore}` : `${ms.finalScore}`;
-                    const isLast = colIdx === priorWithData.length - 1;
-                    return (
-                      <div key={id} style={{
-                        paddingRight: isLast ? 0 : 12,
-                        paddingLeft: colIdx > 0 ? 12 : 0,
-                        borderRight: isLast ? "none" : "1px solid rgba(255,255,255,0.1)"
-                      }}>
-                        {/* Column header */}
-                        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.65rem", fontWeight: 600, marginBottom: 7, whiteSpace: "nowrap" }}>
-                          <span style={{ color: "var(--text-muted)" }}>{short} </span>
-                          <span style={{ color: ms.finalScore < 0 ? "#e8c96a" : ms.finalScore === 0 ? "#f0faf4" : "#6b7280" }}>
-                            ({scoreStr})
-                          </span>
-                        </div>
-                        {ms.pickResults.length === 0 ? (
-                          <div style={{ color: "#6b7280", fontStyle: "italic", fontSize: "0.7rem", textAlign: "center", marginTop: 6 }}>
-                            No picks —<br />penalty applied
-                          </div>
-                        ) : (
-                          sorted.map((pr, i) => (
-                            <div key={i} style={{
-                              display: "flex", alignItems: "center", justifyContent: "space-between",
-                              padding: "2px 0",
-                              opacity: i >= 3 ? 0.5 : 1,
-                              fontStyle: i >= 3 ? "italic" : "normal"
-                            }}>
-                              <span style={{ color: "#f0faf4", fontSize: "0.7rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flex: 1 }}>
-                                {pr.pick.isTopPick && <span style={{ color: "#facc15", fontSize: "0.58rem" }}>⭐ </span>}
-                                {abbrevGolferName(pr.pick.golferName)}
-                              </span>
-                              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.65rem", flexShrink: 0, marginLeft: 4, color: pr.status === "cut" || pr.status === "wd" ? "#6b7280" : pr.score < 0 ? "#e8c96a" : pr.score === 0 ? "#f0faf4" : "#6b7280" }}>
-                                {pr.status === "cut" ? "CUT" : pr.status === "wd" ? "WD" : pr.status === "missing" ? "--" : formatScore(pr.score)}
-                              </span>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })()}
         </div>
 
         {loading ? (
@@ -438,21 +378,24 @@ export default function PicksPage() {
           </div>
         ) : (
           <>
-            {/* Bonus chart */}
-            <div className="card" style={{ padding: "14px 18px", marginBottom: 24 }}>
-              <div style={{ color: "var(--text-muted)", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10, fontWeight: 600 }}>Bonus Chart — {MAJORS.find(m => m.id === activeMajor)?.name}</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 110px 110px", gap: "4px 0", fontSize: "0.78rem" }}>
-                <span style={{ color: "var(--text-muted)", fontSize: "0.68rem" }}>Odds Tier</span>
-                <span style={{ color: "var(--text-muted)", fontSize: "0.68rem", textAlign: "center" }}>Any Pick Wins</span>
-                <span style={{ color: "#facc15", fontSize: "0.68rem", textAlign: "center" }}>Top Pick Wins ⭐</span>
-                {Object.values(ODDS_BONUSES).map(b => (
-                  <><span key={b.tier+"-l"} style={{ color: b.tier==="even-999"?"#facc15":b.tier==="1000-2499"?"#86d8b0":b.tier==="2500-4999"?"#4dbd88":b.tier==="5000plus"?"#28a06a":"#6b7280", padding: "3px 0" }}>{b.label}</span>
-                  <span key={b.tier+"-s"} style={{ color: "#f87171", textAlign: "center", fontFamily: "'DM Mono', monospace" }}>{b.standardBonus}</span>
-                  <span key={b.tier+"-t"} style={{ color: "#facc15", textAlign: "center", fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>{b.topPickBonus}</span></>
-                ))}
-              </div>
+            <div
+              onClick={() => setIsEditingPicks(e => !e)}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer",
+                padding: "10px 4px", marginBottom: isEditingPicks ? 16 : 0
+              }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-secondary)", fontSize: "0.85rem", fontWeight: 600 }}>
+                ✏️ {isEditingPicks ? "Editing picks" : "Edit picks"}
+              </span>
+              {isEditingPicks && (
+                <button className="btn-secondary" style={{ fontSize: "0.75rem", padding: "5px 12px" }}
+                  onClick={e => { e.stopPropagation(); setIsEditingPicks(false); }}>
+                  Done
+                </button>
+              )}
             </div>
-
+            {isEditingPicks && (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
               {/* LEFT: Pick slots */}
               <div>
@@ -568,8 +511,71 @@ export default function PicksPage() {
                 </div>
               </div>
             </div>
+            )}
           </>
         )}
+
+        {/* Prior finalized major picks — 3-column grid */}
+        {!loading && myStandings && (() => {
+          const priorMajors: { id: string; short: string }[] = [
+            { id: "masters",  short: "MASTERS" },
+            { id: "pga",      short: "PGA" },
+            { id: "us-open",  short: "USO" },
+          ];
+          const priorWithData = priorMajors.filter(m => myStandings.majorScores[m.id as MajorId]);
+          if (priorWithData.length === 0) return null;
+          return (
+            <div className="card" style={{ marginTop: 24, padding: "20px 24px" }}>
+              <div style={{ color: "var(--text-muted)", fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginBottom: 10 }}>Prior Majors</div>
+              <div style={{ display: "grid", gridTemplateColumns: `repeat(${priorWithData.length}, 1fr)` }}>
+                {priorWithData.map(({ id, short }, colIdx) => {
+                  const ms = myStandings.majorScores[id as MajorId];
+                  if (!ms) return null;
+                  const sorted = ms.pickResults ? [...ms.pickResults].sort((a, b) => a.score - b.score) : [];
+                  const scoreStr = ms.finalScore === 0 ? "E" : ms.finalScore > 0 ? `+${ms.finalScore}` : `${ms.finalScore}`;
+                  const isLast = colIdx === priorWithData.length - 1;
+                  return (
+                    <div key={id} style={{
+                      paddingRight: isLast ? 0 : 12,
+                      paddingLeft: colIdx > 0 ? 12 : 0,
+                      borderRight: isLast ? "none" : "1px solid rgba(255,255,255,0.1)"
+                    }}>
+                      {/* Column header */}
+                      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.65rem", fontWeight: 600, marginBottom: 7, whiteSpace: "nowrap" }}>
+                        <span style={{ color: "var(--text-muted)" }}>{short} </span>
+                        <span style={{ color: ms.finalScore < 0 ? "#e8c96a" : ms.finalScore === 0 ? "#f0faf4" : "#6b7280" }}>
+                          ({scoreStr})
+                        </span>
+                      </div>
+                      {ms.pickResults.length === 0 ? (
+                        <div style={{ color: "#6b7280", fontStyle: "italic", fontSize: "0.7rem", textAlign: "center", marginTop: 6 }}>
+                          No picks —<br />penalty applied
+                        </div>
+                      ) : (
+                        sorted.map((pr, i) => (
+                          <div key={i} style={{
+                            display: "flex", alignItems: "center", justifyContent: "space-between",
+                            padding: "2px 0",
+                            opacity: i >= 3 ? 0.5 : 1,
+                            fontStyle: i >= 3 ? "italic" : "normal"
+                          }}>
+                            <span style={{ color: "#f0faf4", fontSize: "0.7rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flex: 1 }}>
+                              {pr.pick.isTopPick && <span style={{ color: "#facc15", fontSize: "0.58rem" }}>⭐ </span>}
+                              {abbrevGolferName(pr.pick.golferName)}
+                            </span>
+                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.65rem", flexShrink: 0, marginLeft: 4, color: pr.status === "cut" || pr.status === "wd" ? "#6b7280" : pr.score < 0 ? "#e8c96a" : pr.score === 0 ? "#f0faf4" : "#6b7280" }}>
+                              {pr.status === "cut" ? "CUT" : pr.status === "wd" ? "WD" : pr.status === "missing" ? "--" : formatScore(pr.score)}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
