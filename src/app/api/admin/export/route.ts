@@ -8,6 +8,24 @@ function formatScore(score: number | null | undefined): string {
   return `${score}`;
 }
 
+function abbreviateName(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/);
+  const first = parts[0];
+  const last = parts[parts.length - 1];
+  return `${first.charAt(0)}. ${last}`;
+}
+
+function buildCountingPicksString(pickResults: { pick: { golferName: string }; score: number; counted: boolean }[] | undefined): string {
+  if (!pickResults || pickResults.length === 0) return "No picks submitted";
+  const counting = pickResults
+    .filter(pr => pr.counted === true)
+    .sort((a, b) => a.score - b.score);
+  if (counting.length === 0) return "No picks submitted";
+  return counting
+    .map(pr => `${abbreviateName(pr.pick.golferName)} (${formatScore(pr.score)})`)
+    .join(" | ");
+}
+
 function csvField(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return "";
   const str = String(value);
@@ -24,10 +42,10 @@ export async function GET(req: NextRequest) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  // Version gate — callers should use ?v=5
+  // Version gate — callers should use ?v=6
   const version = req.nextUrl.searchParams.get("v");
   if (version === "3" || version === "4") {
-    return new Response("Use v=5 for the updated export format", { status: 400 });
+    return new Response("Use v=6 for the updated export format", { status: 400 });
   }
 
   try {
@@ -62,6 +80,10 @@ export async function GET(req: NextRequest) {
       const usOpenScore = s.majorScores?.["us-open"]?.finalScore;
       const britishOpenScore = s.majorScores?.["british-open"]?.finalScore;
 
+      const britishOpenCountingPicks = buildCountingPicksString(
+        s.majorScores?.["british-open"]?.pickResults
+      );
+
       return {
         rank: s.rank,
         name: s.entrantName ?? "",
@@ -76,7 +98,8 @@ export async function GET(req: NextRequest) {
         mastersPicks,
         pgaPicks,
         winnersHit: s.totalWinnersHit,
-        topPickWins: s.totalTopPickWins
+        topPickWins: s.totalTopPickWins,
+        britishOpenCountingPicks
       };
     });
 
@@ -88,7 +111,8 @@ export async function GET(req: NextRequest) {
       "US Open Picks",
       "British Open Picks",
       "Masters Picks", "PGA Picks",
-      "Winners Hit", "Top Pick Wins"
+      "Winners Hit", "Top Pick Wins",
+      "British Open Counting Picks"
     ];
 
     const csvRows = rows.map(row => [
@@ -105,7 +129,8 @@ export async function GET(req: NextRequest) {
       csvField(row.mastersPicks ? `"${row.mastersPicks}"` : ""),
       csvField(row.pgaPicks ? `"${row.pgaPicks}"` : ""),
       csvField(row.winnersHit),
-      csvField(row.topPickWins)
+      csvField(row.topPickWins),
+      csvField(`"${row.britishOpenCountingPicks}"`)
     ].join(","));
 
     const csv = [headers.join(","), ...csvRows].join("\n");
